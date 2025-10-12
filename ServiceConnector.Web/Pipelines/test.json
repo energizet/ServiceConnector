@@ -1,0 +1,58 @@
+[
+  {
+    "RequestId": "test-request",
+    "Pipeline": [
+      {
+        "Type": "HttpRequest",
+        "Id": "AlarmPost",
+        "Method": "POST",
+        "Url": "http://10.90.11.94:8448/api/Alarm",
+        "Format": "JSON",
+        "Data": "$AlarmPostData"
+      },
+      {
+        "Type": "HttpRequest",
+        "Id": "AlarmRequestTotalCount",
+        "Method": "GET",
+        "Url": "http://10.90.11.94:8448/api/Alarm",
+        "Headers": {
+          "Authorization": "$headers.Authorization"
+        },
+        "Params": {
+          "size": "0",
+          "root_object": "$request.ObjectIds",
+          "closed": "false",
+          "created_from": "$request.TimeRange.From",
+          "created_to": "$request.TimeRange.Till"
+        }
+      },
+      {
+        "Type": "Object",
+        "Id": "array",
+        "Data": [
+          {
+            "Title": "Настройки",
+            "Type": "link",
+            "Icon": "settings",
+            "Target": "_blank"
+          },
+          {
+            "Title": "Выход",
+            "Type": "button",
+            "Icon": "logout",
+            "Action": "logout"
+          }
+        ]
+      },
+      {
+        "Type": "Mapping",
+        "Id": "result",
+        "List": "$array",
+        "Map": {
+          "Title": "$item.Title",
+          "TitleType": "{{$item.Title}}--{{$item.Type}}"
+        }
+      }
+    ]
+  }
+]
