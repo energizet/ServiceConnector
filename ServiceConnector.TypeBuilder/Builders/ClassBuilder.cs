@@ -19,7 +19,7 @@ public class ClassBuilder(Type baseType, string name, AssemblyBuilder assemblyBu
 	{
 		_fields.Add(
 			$$"""
-			      {{modifier}} {{type}} {{name}}
+			      {{modifier}} {{type}} {{name}};
 			  """
 		);
 		return this;

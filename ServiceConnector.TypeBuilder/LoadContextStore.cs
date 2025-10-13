@@ -10,8 +10,6 @@ public sealed class LoadContextStore(AssemblyLoadContext loadContext) : IDisposa
 {
 	public Dictionary<Assembly, MetadataReference> References { get; } = new();
 
-	private List<MemoryStream> _streams = null!;
-
 	private bool _isInitialized;
 
 	private readonly Lock _lock = new();
@@ -29,28 +27,16 @@ public sealed class LoadContextStore(AssemblyLoadContext loadContext) : IDisposa
 				.SelectMany(x => x.Assemblies)
 				.Where(x => !References.ContainsKey(x))
 				.Where(x => !string.IsNullOrWhiteSpace(x.Location))
-				.ToList();
-
-			var streams = assemblies
 				.Select(x => (assembly: x, stream: new MemoryStream(File.ReadAllBytes(x.Location))))
 				.ToList();
 
-			_streams = streams.Select(x => x.stream).ToList();
-
-			foreach (var (assembly, stream) in streams)
+			foreach (var (assembly, stream) in assemblies)
 			{
 				References[assembly] = MetadataReference.CreateFromStream(stream);
+				stream.Dispose();
 			}
 
 			_isInitialized = true;
-		}
-	}
-
-	public void Dispose()
-	{
-		foreach (var stream in _streams)
-		{
-			stream.Dispose();
 		}
 	}
 
@@ -97,5 +83,10 @@ public sealed class LoadContextStore(AssemblyLoadContext loadContext) : IDisposa
 		}
 
 		throw exception;
+	}
+
+	public void Dispose()
+	{
+		References.Clear();
 	}
 }
