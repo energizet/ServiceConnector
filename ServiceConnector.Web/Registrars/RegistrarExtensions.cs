@@ -1,3 +1,4 @@
+using ServiceConnector.Common;
 using ServiceConnector.Web.Configs;
 
 namespace ServiceConnector.Web.Registrars;
@@ -26,6 +27,8 @@ public static class RegistrarExtensions
 
 		services.AddSingleton(JobBuilder.Create);
 		services.AddSingleton<RequestPipelineLoader>();
+		services.AddSingleton<RunnersStore>();
+		services.AddSingleton<IRunnerFinder>(provider => provider.GetRequiredService<RunnersStore>());
 		services.AddHostedService<ServiceConnectorRegistrar>();
 
 		return services;

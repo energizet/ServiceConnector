@@ -23,8 +23,3 @@ public interface IJob : IRunner
 	ILinker Linker { set; }
 	Task<Type> Compile(TypesStore types, CancellationToken cancellationToken);
 }
-
-public interface IRunner
-{
-	Task<object?> Run(PipelineStore store, CancellationToken cancellationToken);
-}

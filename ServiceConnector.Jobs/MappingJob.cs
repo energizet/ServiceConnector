@@ -21,6 +21,11 @@ public class MappingJob(MappingJobConfig config) : BaseJob<MappingJobConfig>(con
 
 	public override async Task<object?> Run(PipelineStore store, CancellationToken cancellationToken)
 	{
-		return new List<object>();
+		var list = (List<ObjectJob.Test>)store["array"]!;
+		return list.Select(item => new
+		{
+			Title = $"{item.Title}",
+			TitleType = $"{item.Title}--{item.Type}"
+		}).ToList();
 	}
 }

@@ -15,11 +15,36 @@ public class ObjectJob(ObjectJobConfig config) : BaseJob<ObjectJobConfig>(config
 	{
 		Linker.Link("AlarmPost");
 		Linker.Link("AlarmRequestTotalCount");
-		return typeof(object);
+		return typeof(List<Test>);
 	}
 
 	public override async Task<object?> Run(PipelineStore store, CancellationToken cancellationToken)
 	{
-		return new();
+		var request = store["request"]!;
+		return (List<Test>)
+		[
+			new Test
+			{
+				Title = request.ToString()!,
+				Type = "link",
+				Icon = "settings",
+				Target = "_blank"
+			},
+			new Test
+			{
+				Title = "Выход",
+				Type = "button",
+				Icon = "logout",
+				Target = "logout"
+			}
+		];
+	}
+
+	public class Test
+	{
+		public string Title { get; init; }
+		public string Type { get; init; }
+		public string Icon { get; init; }
+		public string Target { get; init; }
 	}
 }

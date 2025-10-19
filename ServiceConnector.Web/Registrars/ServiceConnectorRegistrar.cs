@@ -8,6 +8,7 @@ public class ServiceConnectorRegistrar(
 	ILogger<ServiceConnectorRegistrar> logger,
 	RequestPipelineLoader loader,
 	JobBuilder jobBuilder,
+	RunnersStore runnersStore,
 	IOptions<ServiceConnectorConfig> config
 ) : IHostedService
 {
@@ -33,15 +34,13 @@ public class ServiceConnectorRegistrar(
 
 	private async Task Load(List<PipelineDefinition> definitions, CancellationToken cancellationToken)
 	{
-		var requestIds = new HashSet<string>();
-
 		var successCount = 0;
 		var errorCount = 0;
 
 		foreach (var definition in definitions)
 		{
 			var requestId = definition.RequestId;
-			if (requestIds.Contains(requestId))
+			if (runnersStore.TryGetValue(requestId, out _))
 			{
 				logger.LogError("[{RequestId}] Request already exist", requestId);
 				continue;
@@ -49,8 +48,8 @@ public class ServiceConnectorRegistrar(
 
 			try
 			{
-				await Compile(definition, cancellationToken);
-				requestIds.Add(requestId);
+				var runner = await Compile(definition, cancellationToken);
+				runnersStore[requestId] = (runner,definition);
 				logger.LogInformation("[{RequestId}] Request success load", requestId);
 				successCount++;
 			}
@@ -65,12 +64,12 @@ public class ServiceConnectorRegistrar(
 			successCount, Environment.NewLine, errorCount);
 	}
 
-	private async Task Compile(PipelineDefinition definition, CancellationToken cancellationToken)
+	private async Task<IRunner> Compile(PipelineDefinition definition, CancellationToken cancellationToken)
 	{
 		var types = new TypesStore
 		{
 			["headers"] = typeof(IDictionary<string, string>),
-			["request"] = new { Name = "", }.GetType(),
+			["request"] = definition.RequestType,
 		};
 
 		var graphBuilder = new JobGraph.Builder();
@@ -90,6 +89,6 @@ public class ServiceConnectorRegistrar(
 			}
 		}
 
-		var graph = graphBuilder.Build();
+		return graphBuilder.Build();
 	}
 }

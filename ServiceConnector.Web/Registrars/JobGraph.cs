@@ -1,5 +1,4 @@
 using ServiceConnector.Common;
-using ServiceConnector.Jobs;
 
 namespace ServiceConnector.Web.Registrars;
 
@@ -12,13 +11,7 @@ public partial class JobGraph(List<JobGraph.Node> firsts, JobGraph.Node? last) :
 			return null;
 		}
 
-		var tasks = firsts
-			.Select(node => Task.Run(async () =>
-				(
-					Node: node,
-					Result: await node.Job.Run(new(store), cancellationToken)
-				), cancellationToken)
-			).ToList();
+		var tasks = firsts.Select(node => Run(node, store, cancellationToken)).ToList();
 
 		var colors = new Dictionary<Node, NodeColor>();
 		foreach (var node in firsts)
@@ -26,19 +19,22 @@ public partial class JobGraph(List<JobGraph.Node> firsts, JobGraph.Node? last) :
 			colors[node] = NodeColor.Grey;
 		}
 
+		var errors = new List<Exception>();
+
 		while (tasks.Count > 0)
 		{
 			var task = await Task.WhenAny(tasks);
 			tasks.Remove(task);
 
-			Node node = null!;
+			Node node;
 			object? result;
 			try
 			{
 				(node, result) = await task;
 			}
-			catch
+			catch (Exception ex)
 			{
+				errors.Add(ex);
 				continue;
 			}
 
@@ -59,17 +55,27 @@ public partial class JobGraph(List<JobGraph.Node> firsts, JobGraph.Node? last) :
 				}
 
 				colors[nodeTo] = NodeColor.Grey;
-				tasks.Add(Task.Run(async () =>
-					(
-						Node: nodeTo,
-						Result: await nodeTo.Job.Run(new(store), cancellationToken)
-					), cancellationToken)
-				);
+				tasks.Add(Run(nodeTo, store, cancellationToken));
 			}
+		}
+
+		if (errors.Count != 0)
+		{
+			throw new AggregateException(errors);
 		}
 
 		store.TryGetValue(last.Job.Id, out var res);
 		return res;
+	}
+
+	private static Task<(Node Node, object? Result)> Run(Node node, PipelineStore store,
+		CancellationToken cancellationToken)
+	{
+		return Task.Run(async () =>
+		(
+			Node: node,
+			Result: await node.Job.Run(new(store), cancellationToken)
+		), cancellationToken);
 	}
 
 	private enum NodeColor

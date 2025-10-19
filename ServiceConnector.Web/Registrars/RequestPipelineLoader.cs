@@ -1,8 +1,8 @@
 using System.Runtime.CompilerServices;
-using System.Runtime.Loader;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using ServiceConnector.Common;
 
 namespace ServiceConnector.Web.Registrars;
 
@@ -43,7 +43,13 @@ public class RequestPipelineLoader(
 				continue;
 			}
 
-			definition!.File = file;
+			if (definition == null)
+			{
+				throw new ArgumentException($"Invalid pipeline definition in file {file}");
+			}
+
+			definition.RequestType = new { Name = "" }.GetType(); // TODO definition.Request
+			definition.File = file;
 			definition.FileHash = hash;
 			definition.LoadContext = loadContext;
 
@@ -104,14 +110,4 @@ public class RequestPipelineLoader(
 			}
 		}
 	}
-}
-
-public class PipelineDefinition
-{
-	public bool IsEnable { get; init; } = true;
-	public required string RequestId { get; init; }
-	public required JsonElement[] Pipeline { get; init; }
-	public string File { get; set; } = null!;
-	public string FileHash { get; set; } = null!;
-	public AssemblyLoadContext LoadContext { get; set; } = null!;
 }
