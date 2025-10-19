@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Runtime.Loader;
 using System.Security.Cryptography;
 using System.Text;
@@ -9,13 +10,13 @@ public class RequestPipelineLoader(
 	ILogger<RequestPipelineLoader> logger
 )
 {
-	public async Task<List<PipelineDefinition>> Read(params string[] files)
+	public async Task<List<PipelineDefinition>> Read(string[] files, CancellationToken cancellationToken)
 	{
 		var definitions = new List<PipelineDefinition>();
 
-		foreach (var file in files.Select(Deserialize))
+		foreach (var file in files.Select(x => Deserialize(x, cancellationToken)))
 		{
-			await foreach (var definition in file)
+			await foreach (var definition in file.WithCancellation(cancellationToken))
 			{
 				definitions.Add(definition);
 			}
@@ -24,9 +25,10 @@ public class RequestPipelineLoader(
 		return definitions;
 	}
 
-	private async IAsyncEnumerable<PipelineDefinition> Deserialize(string file)
+	private async IAsyncEnumerable<PipelineDefinition> Deserialize(string file,
+		[EnumeratorCancellation] CancellationToken cancellationToken)
 	{
-		var (json, hash) = await GetFile(file);
+		var (json, hash) = await GetFile(file, cancellationToken);
 
 		if (!TryDeserialize(file, json, out var pipelines))
 		{
@@ -36,7 +38,7 @@ public class RequestPipelineLoader(
 		var loadContext = new PipelineLoadContext();
 		foreach (var element in pipelines!)
 		{
-			if (!TryDeserialize<PipelineDefinition>(element!, out var definition))
+			if (!TryDeserialize<PipelineDefinition>(element, out var definition))
 			{
 				continue;
 			}
@@ -82,13 +84,13 @@ public class RequestPipelineLoader(
 		}
 	}
 
-	private async Task<(string json, string hash)> GetFile(string file)
+	private async Task<(string json, string hash)> GetFile(string file, CancellationToken cancellationToken)
 	{
 		while (true)
 		{
 			try
 			{
-				var bytes = await File.ReadAllBytesAsync(file);
+				var bytes = await File.ReadAllBytesAsync(file, cancellationToken);
 
 				var json = Encoding.UTF8.GetString(bytes);
 				var hash = string.Join("", SHA1.HashData(bytes).Select(x => x.ToString("x2")));
@@ -98,7 +100,7 @@ public class RequestPipelineLoader(
 			catch (IOException ex)
 			{
 				logger.LogError(ex, "Try read locked file");
-				await Task.Delay(1000);
+				await Task.Delay(1000, cancellationToken);
 			}
 		}
 	}

@@ -1,62 +1,80 @@
+using ServiceConnector.Common;
 using ServiceConnector.Jobs;
 
 namespace ServiceConnector.Web.Registrars;
 
-public class JobGraph(List<JobGraph.Node> firsts, JobGraph.Node? last)
+public partial class JobGraph(List<JobGraph.Node> firsts, JobGraph.Node? last) : IRunner
 {
-	public class Builder
+	public async Task<object?> Run(PipelineStore store, CancellationToken cancellationToken)
 	{
-		private readonly Dictionary<string, Node> _nodes = new(StringComparer.OrdinalIgnoreCase);
-		private Node? _last;
-
-		public EdgeLinker AddNode(IJob job)
+		if (last == null)
 		{
-			var node = new Node
-			{
-				Job = job,
-			};
-			_nodes.Add(job.Id, node);
-			_last = node;
-
-			return new(this, job);
+			return null;
 		}
 
-		public void AddEdge(string fromId, IJob to)
-		{
-			var toId = to.Id;
+		var tasks = firsts
+			.Select(node => Task.Run(async () =>
+				(
+					Node: node,
+					Result: await node.Job.Run(new(store), cancellationToken)
+				), cancellationToken)
+			).ToList();
 
-			if (!_nodes.TryGetValue(fromId, out var fromNode) ||
-			    !_nodes.TryGetValue(toId, out var toNode))
+		var colors = new Dictionary<Node, NodeColor>();
+		foreach (var node in firsts)
+		{
+			colors[node] = NodeColor.Grey;
+		}
+
+		while (tasks.Count > 0)
+		{
+			var task = await Task.WhenAny(tasks);
+			tasks.Remove(task);
+
+			Node node = null!;
+			object? result;
+			try
 			{
-				return;
+				(node, result) = await task;
+			}
+			catch
+			{
+				continue;
 			}
 
-			fromNode.To.Add(toNode);
-			toNode.From.Add(fromNode);
+			store[node.Job.Id] = result;
+			colors[node] = NodeColor.Black;
+
+			foreach (var nodeTo in node.To)
+			{
+				if (colors.ContainsKey(nodeTo))
+				{
+					continue;
+				}
+
+				var nodes = nodeTo.From;
+				if (nodes.Any(x => !colors.TryGetValue(x, out var color) || color != NodeColor.Black))
+				{
+					continue;
+				}
+
+				colors[nodeTo] = NodeColor.Grey;
+				tasks.Add(Task.Run(async () =>
+					(
+						Node: nodeTo,
+						Result: await nodeTo.Job.Run(new(store), cancellationToken)
+					), cancellationToken)
+				);
+			}
 		}
 
-		public JobGraph Build()
-		{
-			var firsts = _nodes.Values
-				.Where(x => x.From.Count == 0)
-				.ToList();
-
-			return new(firsts, _last);
-		}
+		store.TryGetValue(last.Job.Id, out var res);
+		return res;
 	}
 
-	public class Node
+	private enum NodeColor
 	{
-		public HashSet<Node> From { get; } = [];
-		public HashSet<Node> To { get; } = [];
-		public required IJob Job { get; init; }
-	}
-
-	public class EdgeLinker(Builder builder, IJob to) : ILinker
-	{
-		public void Link(string from)
-		{
-			builder.AddEdge(from, to);
-		}
+		Grey,
+		Black,
 	}
 }

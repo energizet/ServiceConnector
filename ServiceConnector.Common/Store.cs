@@ -2,7 +2,7 @@ namespace ServiceConnector.Common;
 
 public abstract class Store<T>(Store<T>? parentStore = null)
 {
-	private readonly Dictionary<string, T> _store = [];
+	private readonly Dictionary<string, T> _store = new(StringComparer.OrdinalIgnoreCase);
 
 	public void Set(string key, T value)
 	{
@@ -21,18 +21,12 @@ public abstract class Store<T>(Store<T>? parentStore = null)
 
 	public bool TryGetValue(string key, out T? value)
 	{
-		key = key.ToLower();
 		if (_store.TryGetValue(key, out value))
 		{
 			return true;
 		}
 
-		if (parentStore?.TryGetValue(key, out value) == true)
-		{
-			return true;
-		}
-
-		return false;
+		return parentStore?.TryGetValue(key, out value) == true;
 	}
 
 	public T this[string key]

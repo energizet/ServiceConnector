@@ -13,13 +13,13 @@ public class MappingJobConfig : BaseJobConfig
 [PipelineJob]
 public class MappingJob(MappingJobConfig config) : BaseJob<MappingJobConfig>(config)
 {
-	public override async Task<Type> Compile(TypesStore types)
+	public override async Task<Type> Compile(TypesStore types, CancellationToken cancellationToken)
 	{
 		Linker.Link("array");
 		return typeof(List<object>);
 	}
 
-	public override async Task<object?> Run(PipelineStore store)
+	public override async Task<object?> Run(PipelineStore store, CancellationToken cancellationToken)
 	{
 		return new List<object>();
 	}

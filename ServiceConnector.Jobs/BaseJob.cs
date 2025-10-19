@@ -13,14 +13,18 @@ public abstract class BaseJob<T>(T config) : IJob
 	protected T Config => config;
 	public string Id => Config.Id;
 	public ILinker Linker { get; set; } = null!;
-	public abstract Task<Type> Compile(TypesStore types);
-	public abstract Task<object?> Run(PipelineStore store);
+	public abstract Task<Type> Compile(TypesStore types, CancellationToken cancellationToken);
+	public abstract Task<object?> Run(PipelineStore store, CancellationToken cancellationToken);
 }
 
-public interface IJob
+public interface IJob : IRunner
 {
 	string Id { get; }
 	ILinker Linker { set; }
-	Task<Type> Compile(TypesStore types);
-	Task<object?> Run(PipelineStore store);
+	Task<Type> Compile(TypesStore types, CancellationToken cancellationToken);
+}
+
+public interface IRunner
+{
+	Task<object?> Run(PipelineStore store, CancellationToken cancellationToken);
 }

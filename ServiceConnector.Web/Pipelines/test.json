@@ -1,6 +1,9 @@
 [
   {
     "RequestId": "test-request",
+    "Request": {
+      "Name": "string"
+    },
     "Pipeline": [
       {
         "Type": "HttpRequest",

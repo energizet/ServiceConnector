@@ -11,14 +11,14 @@ public class ObjectJobConfig : BaseJobConfig
 [PipelineJob]
 public class ObjectJob(ObjectJobConfig config) : BaseJob<ObjectJobConfig>(config)
 {
-	public override async Task<Type> Compile(TypesStore types)
+	public override async Task<Type> Compile(TypesStore types, CancellationToken cancellationToken)
 	{
 		Linker.Link("AlarmPost");
 		Linker.Link("AlarmRequestTotalCount");
 		return typeof(object);
 	}
 
-	public override async Task<object?> Run(PipelineStore store)
+	public override async Task<object?> Run(PipelineStore store, CancellationToken cancellationToken)
 	{
 		return new();
 	}

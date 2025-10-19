@@ -17,7 +17,7 @@ public class ServiceConnectorRegistrar(
 	{
 		var files = Directory.GetFiles(_config.PipelinesPath, ServiceConnectorConfig.Filter,
 			SearchOption.AllDirectories);
-		await Create(files);
+		await Create(files, cancellationToken);
 	}
 
 	public Task StopAsync(CancellationToken cancellationToken)
@@ -25,13 +25,13 @@ public class ServiceConnectorRegistrar(
 		return Task.CompletedTask;
 	}
 
-	private async Task Create(params string[] files)
+	private async Task Create(string[] files, CancellationToken cancellationToken)
 	{
-		var pipelines = await loader.Read(files);
-		await Load(pipelines);
+		var pipelines = await loader.Read(files, cancellationToken);
+		await Load(pipelines, cancellationToken);
 	}
 
-	private async Task Load(List<PipelineDefinition> definitions)
+	private async Task Load(List<PipelineDefinition> definitions, CancellationToken cancellationToken)
 	{
 		var requestIds = new HashSet<string>();
 
@@ -49,7 +49,7 @@ public class ServiceConnectorRegistrar(
 
 			try
 			{
-				await Compile(definition);
+				await Compile(definition, cancellationToken);
 				requestIds.Add(requestId);
 				logger.LogInformation("[{RequestId}] Request success load", requestId);
 				successCount++;
@@ -65,12 +65,12 @@ public class ServiceConnectorRegistrar(
 			successCount, Environment.NewLine, errorCount);
 	}
 
-	private async Task Compile(PipelineDefinition definition)
+	private async Task Compile(PipelineDefinition definition, CancellationToken cancellationToken)
 	{
 		var types = new TypesStore
 		{
 			["headers"] = typeof(IDictionary<string, string>),
-			["request"] = typeof(object),
+			["request"] = new { Name = "", }.GetType(),
 		};
 
 		var graphBuilder = new JobGraph.Builder();
@@ -81,7 +81,7 @@ public class ServiceConnectorRegistrar(
 
 			try
 			{
-				types[job.Id] = await job.Compile(types);
+				types[job.Id] = await job.Compile(types, cancellationToken);
 			}
 			catch (Exception ex)
 			{
