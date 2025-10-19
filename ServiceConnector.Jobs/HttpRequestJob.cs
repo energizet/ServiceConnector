@@ -29,12 +29,12 @@ public class HttpRequestJobConfig : BaseJobConfig
 [PipelineJob]
 public class HttpRequestJob(HttpRequestJobConfig config) : BaseJob<HttpRequestJobConfig>(config)
 {
-	public override async Task<Type> CompileAsync(TypesStore types)
+	public override async Task<Type> Compile(TypesStore types)
 	{
 		return typeof(object);
 	}
 
-	public override async Task<object?> RunAsync(PipelineStore store)
+	public override async Task<object?> Run(PipelineStore store)
 	{
 		return new();
 	}

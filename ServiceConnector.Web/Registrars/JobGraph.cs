@@ -6,7 +6,7 @@ public class JobGraph(List<JobGraph.Node> firsts, JobGraph.Node? last)
 {
 	public class Builder
 	{
-		private readonly Dictionary<string, Node> _nodes = [];
+		private readonly Dictionary<string, Node> _nodes = new(StringComparer.OrdinalIgnoreCase);
 		private Node? _last;
 
 		public EdgeLinker AddNode(IJob job)
@@ -15,16 +15,15 @@ public class JobGraph(List<JobGraph.Node> firsts, JobGraph.Node? last)
 			{
 				Job = job,
 			};
-			_nodes.Add(job.Id.ToLower(), node);
+			_nodes.Add(job.Id, node);
 			_last = node;
 
 			return new(this, job);
 		}
 
-		public void AddEdge(IJob from, IJob to)
+		public void AddEdge(string fromId, IJob to)
 		{
-			var fromId = from.Id.ToLower();
-			var toId = to.Id.ToLower();
+			var toId = to.Id;
 
 			if (!_nodes.TryGetValue(fromId, out var fromNode) ||
 			    !_nodes.TryGetValue(toId, out var toNode))
@@ -53,13 +52,9 @@ public class JobGraph(List<JobGraph.Node> firsts, JobGraph.Node? last)
 		public required IJob Job { get; init; }
 	}
 
-	public class Edge
+	public class EdgeLinker(Builder builder, IJob to) : ILinker
 	{
-	}
-
-	public class EdgeLinker(Builder builder, IJob from)
-	{
-		public void To(IJob to)
+		public void Link(string from)
 		{
 			builder.AddEdge(from, to);
 		}

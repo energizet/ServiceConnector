@@ -77,7 +77,17 @@ public class ServiceConnectorRegistrar(
 		foreach (var element in definition.Pipeline)
 		{
 			var job = jobBuilder.Create(definition.RequestId, element);
-			var linker = graphBuilder.AddNode(job);
+			job.Linker = graphBuilder.AddNode(job);
+
+			try
+			{
+				types[job.Id] = await job.Compile(types);
+			}
+			catch (Exception ex)
+			{
+				throw new ArgumentException(
+					$"{job.GetType().Name} {job.Id} incorrect:{Environment.NewLine}{ex.Message}", ex);
+			}
 		}
 
 		var graph = graphBuilder.Build();
