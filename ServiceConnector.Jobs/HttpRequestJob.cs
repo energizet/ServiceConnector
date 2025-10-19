@@ -20,14 +20,14 @@ public class HttpRequestJobConfig : BaseJobConfig
 	public required string Url { get; init; }
 
 	public Dictionary<string, string> Headers { get; set; } = [];
-	public required JsonElement Params { get; set; }
+	public JsonElement? Params { get; set; }
 
 	public FormatEnum Format { get; set; } = FormatEnum.Json;
 	public JsonElement? Data { get; set; }
 }
 
 [PipelineJob]
-public class HttpRequestJob : BaseJob<HttpRequestJobConfig>
+public class HttpRequestJob(HttpRequestJobConfig config) : BaseJob<HttpRequestJobConfig>(config)
 {
 	public override async Task<Type> CompileAsync(TypesStore types)
 	{

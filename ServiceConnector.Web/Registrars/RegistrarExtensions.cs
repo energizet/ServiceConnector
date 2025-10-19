@@ -24,6 +24,7 @@ public static class RegistrarExtensions
 		//	opt.EnableDetailedErrors = true;
 		//});
 
+		services.AddSingleton(JobBuilder.Create);
 		services.AddSingleton<RequestPipelineLoader>();
 		services.AddHostedService<ServiceConnectorRegistrar>();
 

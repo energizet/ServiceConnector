@@ -9,7 +9,7 @@ public class ObjectJobConfig : BaseJobConfig
 }
 
 [PipelineJob]
-internal class ObjectJob : BaseJob<ObjectJobConfig>
+public class ObjectJob(ObjectJobConfig config) : BaseJob<ObjectJobConfig>(config)
 {
 	public override async Task<Type> CompileAsync(TypesStore types)
 	{

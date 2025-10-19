@@ -7,11 +7,11 @@ public class MappingJobConfig : BaseJobConfig
 {
 	public string? List { get; set; }
 	public List<string>? Lists { get; set; }
-	public required JsonElement Fields { get; init; }
+	public required JsonElement Map { get; init; }
 }
 
 [PipelineJob]
-internal class MappingJob : BaseJob<MappingJobConfig>
+public class MappingJob(MappingJobConfig config) : BaseJob<MappingJobConfig>(config)
 {
 	public override async Task<Type> CompileAsync(TypesStore types)
 	{

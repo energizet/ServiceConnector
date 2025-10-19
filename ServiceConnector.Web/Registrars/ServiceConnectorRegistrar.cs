@@ -7,6 +7,7 @@ namespace ServiceConnector.Web.Registrars;
 public class ServiceConnectorRegistrar(
 	ILogger<ServiceConnectorRegistrar> logger,
 	RequestPipelineLoader loader,
+	JobBuilder jobBuilder,
 	IOptions<ServiceConnectorConfig> config
 ) : IHostedService
 {
@@ -72,8 +73,13 @@ public class ServiceConnectorRegistrar(
 			["request"] = typeof(object),
 		};
 
+		var graphBuilder = new JobGraph.Builder();
 		foreach (var element in definition.Pipeline)
 		{
+			var job = jobBuilder.Create(definition.RequestId, element);
+			var linker = graphBuilder.AddNode(job);
 		}
+
+		var graph = graphBuilder.Build();
 	}
 }
