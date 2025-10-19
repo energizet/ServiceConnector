@@ -1,25 +1,25 @@
-namespace ServiceConnector.Web.Registrars;
+namespace ServiceConnector.Common;
 
-public class TypesStore(TypesStore? parentStore = null)
+public abstract class Store<T>(Store<T>? parentStore = null)
 {
-	private readonly Dictionary<string, Type> _store = [];
+	private readonly Dictionary<string, T> _store = [];
 
-	public void Set(string key, Type value)
+	public void Set(string key, T value)
 	{
 		_store[key.ToLower()] = value;
 	}
 
-	public Type Get(string key)
+	public T Get(string key)
 	{
 		if (!TryGetValue(key, out var value))
 		{
-			throw new($"{key} not found in types store");
+			throw new($"{key} not found in store");
 		}
 
 		return value!;
 	}
 
-	public bool TryGetValue(string key, out Type? value)
+	public bool TryGetValue(string key, out T? value)
 	{
 		key = key.ToLower();
 		if (_store.TryGetValue(key, out value))
@@ -35,7 +35,7 @@ public class TypesStore(TypesStore? parentStore = null)
 		return false;
 	}
 
-	public Type this[string key]
+	public T this[string key]
 	{
 		set => Set(key, value);
 		get => Get(key);

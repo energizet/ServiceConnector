@@ -14,6 +14,8 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\ServiceConnector.Common\ServiceConnector.Common.csproj" />
+      <ProjectReference Include="..\ServiceConnector.Jobs\ServiceConnector.Jobs.csproj" />
       <ProjectReference Include="..\ServiceConnector.TypeBuilder\ServiceConnector.TypeBuilder.csproj" />
     </ItemGroup>
 

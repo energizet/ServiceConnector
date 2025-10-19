@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using ServiceConnector.Common;
 using ServiceConnector.Web.Configs;
 
 namespace ServiceConnector.Web.Registrars;
@@ -18,8 +19,9 @@ public class ServiceConnectorRegistrar(
 		await Create(files);
 	}
 
-	public async Task StopAsync(CancellationToken cancellationToken)
+	public Task StopAsync(CancellationToken cancellationToken)
 	{
+		return Task.CompletedTask;
 	}
 
 	private async Task Create(params string[] files)
