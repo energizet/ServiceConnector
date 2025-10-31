@@ -1,22 +1,35 @@
-﻿using Microsoft.CodeAnalysis;
+﻿using System.Text.RegularExpressions;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using ServiceConnector.TypeBuilder.Interfaces;
 
 namespace ServiceConnector.TypeBuilder.Builders;
 
-public class AssemblyBuilder(string assemblyName, string ns, LoadContextStore loadContextStore) : IAssemblyBuilder
+public partial class AssemblyBuilder(string assemblyName, string ns, LoadContextStore loadContextStore)
+	: IAssemblyBuilder
 {
-	public string AssemblyName => assemblyName;
+	public string AssemblyName { get; } = IgnoredSymbolsRegex().Replace(assemblyName, "");
+	private readonly string _namespace = IgnoredSymbolsRegex().Replace(ns, "");
 	private readonly List<ITypeBuilder> _typeBuilders = [];
 
 	public IClassBuilder CreateClass(string className)
 	{
-		return CreateClass<object>(className);
+		return CreateClass<object>([], className);
 	}
 
 	public IClassBuilder CreateClass<T>(string className)
 	{
-		return CreateClass(typeof(T), className);
+		return CreateClass<T>([], className);
+	}
+
+	public IClassBuilder CreateClass<T>(List<Type> interfaces, string className)
+	{
+		return CreateClass(typeof(T), interfaces, className);
+	}
+
+	public IClassBuilder CreateClass(Type baseType, string className)
+	{
+		return CreateClass(baseType, [], className);
 	}
 
 	public IInterfaceBuilder CreateInterface(string interfaceName)
@@ -34,9 +47,9 @@ public class AssemblyBuilder(string assemblyName, string ns, LoadContextStore lo
 		return CreateEnum("", interfaceName);
 	}
 
-	public IClassBuilder CreateClass(Type baseType, string className)
+	public IClassBuilder CreateClass(Type baseType, List<Type> interfaces, string className)
 	{
-		var classBuilder = new ClassBuilder(baseType, className, this);
+		var classBuilder = new ClassBuilder(baseType, interfaces, className, this);
 		_typeBuilders.Add(classBuilder);
 		return classBuilder;
 	}
@@ -62,7 +75,7 @@ public class AssemblyBuilder(string assemblyName, string ns, LoadContextStore lo
 		var refs = loadContextStore.References.Values;
 
 		var source = $$"""
-		               namespace {{ns}};
+		               namespace {{_namespace}};
 
 		               {{string.Join("\n\n", _typeBuilders.Select(x => x.Build()))}}
 		               """;
@@ -77,6 +90,9 @@ public class AssemblyBuilder(string assemblyName, string ns, LoadContextStore lo
 
 		var assembly = loadContextStore.Load(compilation);
 
-		return _typeBuilders.Select(builder => builder.SaveType(assembly, ns)).ToList();
+		return _typeBuilders.Select(builder => builder.SaveType(assembly, _namespace)).ToList();
 	}
+
+	[GeneratedRegex(@"\W")]
+	private static partial Regex IgnoredSymbolsRegex();
 }

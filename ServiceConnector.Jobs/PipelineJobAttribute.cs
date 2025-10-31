@@ -1,4 +1,4 @@
 namespace ServiceConnector.Jobs;
 
-[AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+[AttributeUsage(AttributeTargets.Class)]
 public class PipelineJobAttribute : Attribute;

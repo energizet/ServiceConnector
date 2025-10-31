@@ -3,12 +3,13 @@ using ServiceConnector.TypeBuilder.Interfaces;
 
 namespace ServiceConnector.TypeBuilder.Builders;
 
-public class ClassBuilder(Type baseType, string name, AssemblyBuilder assemblyBuilder)
+public class ClassBuilder(Type baseType, List<Type> interfaces, string name, AssemblyBuilder assemblyBuilder)
 	: BaseTypeBuilder(name, assemblyBuilder), IClassBuilder
 {
 	public Type BaseType => baseType;
 	private readonly List<string> _fields = [];
 	private readonly List<string> _properties = [];
+	private readonly List<string> _methods = [];
 
 	public IClassBuilder CreateField(string name, Type type, string modifier = "public")
 	{
@@ -40,6 +41,25 @@ public class ClassBuilder(Type baseType, string name, AssemblyBuilder assemblyBu
 		return this;
 	}
 
+	public IClassBuilder CreateMethod(string name, Type type, string arguments, string body, string modifier = "public")
+	{
+		return CreateMethod(name, type.ToDisplayString(), arguments, body, modifier);
+	}
+
+	public IClassBuilder CreateMethod(string name, string type, string arguments, string body,
+		string modifier = "public")
+	{
+		_methods.Add(
+			$$"""
+			      {{modifier}} {{type}} {{name}}({{arguments}})
+			      {
+			          {{string.Join("\n        ", body.Replace("\r\n", "\n").Split("\n"))}}
+			      }
+			  """
+		);
+		return this;
+	}
+
 	public override string Build()
 	{
 		var header = $"public sealed class {Name}";
@@ -47,6 +67,11 @@ public class ClassBuilder(Type baseType, string name, AssemblyBuilder assemblyBu
 		if (BaseType != typeof(void))
 		{
 			header = $"{header} : {BaseType.ToDisplayString()}";
+		}
+
+		if (interfaces.Count > 0)
+		{
+			header = $"{header}, {string.Join(", ", interfaces.Select(x => x.ToDisplayString()))}";
 		}
 
 		var constructors = new List<string>();
@@ -75,6 +100,7 @@ public class ClassBuilder(Type baseType, string name, AssemblyBuilder assemblyBu
 		         {{string.Join('\n', _fields)}}
 		         {{string.Join('\n', _properties)}}
 		         {{string.Join('\n', constructors)}}
+		         {{string.Join('\n', _methods)}}
 		         }
 		         """;
 	}

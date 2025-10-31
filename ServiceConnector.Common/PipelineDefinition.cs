@@ -1,5 +1,5 @@
-using System.Runtime.Loader;
 using System.Text.Json;
+using ServiceConnector.TypeBuilder;
 
 namespace ServiceConnector.Common;
 
@@ -13,5 +13,5 @@ public class PipelineDefinition
 	public Type RequestType { get; set; } = null!;
 	public string File { get; set; } = null!;
 	public string FileHash { get; set; } = null!;
-	public AssemblyLoadContext LoadContext { get; set; } = null!;
+	public LoadContextStore LoadContext { get; set; } = null!;
 }

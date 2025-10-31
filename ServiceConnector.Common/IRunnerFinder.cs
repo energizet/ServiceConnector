@@ -1,5 +1,3 @@
-using System.Text.Json;
-
 namespace ServiceConnector.Common;
 
 public interface IRunnerFinder

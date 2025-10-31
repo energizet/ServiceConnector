@@ -6,4 +6,8 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\ServiceConnector.TypeBuilder\ServiceConnector.TypeBuilder.csproj" />
+    </ItemGroup>
+
 </Project>

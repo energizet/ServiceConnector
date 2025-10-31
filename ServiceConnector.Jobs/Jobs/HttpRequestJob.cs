@@ -1,7 +1,7 @@
 using System.Text.Json;
 using ServiceConnector.Common;
 
-namespace ServiceConnector.Jobs;
+namespace ServiceConnector.Jobs.Jobs;
 
 public class HttpRequestJobConfig : BaseJobConfig
 {

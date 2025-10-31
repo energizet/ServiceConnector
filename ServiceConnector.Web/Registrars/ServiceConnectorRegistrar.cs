@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using ServiceConnector.Common;
+using ServiceConnector.TypeBuilder;
 using ServiceConnector.Web.Configs;
 
 namespace ServiceConnector.Web.Registrars;
@@ -49,7 +50,7 @@ public class ServiceConnectorRegistrar(
 			try
 			{
 				var runner = await Compile(definition, cancellationToken);
-				runnersStore[requestId] = (runner,definition);
+				runnersStore[requestId] = (runner, definition);
 				logger.LogInformation("[{RequestId}] Request success load", requestId);
 				successCount++;
 			}
@@ -72,11 +73,14 @@ public class ServiceConnectorRegistrar(
 			["request"] = definition.RequestType,
 		};
 
+		var factory = new AssemblyBuilderFactory(definition.LoadContext, definition.RequestId);
 		var graphBuilder = new JobGraph.Builder();
 		foreach (var element in definition.Pipeline)
 		{
 			var job = jobBuilder.Create(definition.RequestId, element);
+			job.Definition = definition;
 			job.Linker = graphBuilder.AddNode(job);
+			job.TypeBuilder = new(factory);
 
 			try
 			{

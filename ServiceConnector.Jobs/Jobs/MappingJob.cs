@@ -1,7 +1,7 @@
 using System.Text.Json;
 using ServiceConnector.Common;
 
-namespace ServiceConnector.Jobs;
+namespace ServiceConnector.Jobs.Jobs;
 
 public class MappingJobConfig : BaseJobConfig
 {
@@ -21,11 +21,18 @@ public class MappingJob(MappingJobConfig config) : BaseJob<MappingJobConfig>(con
 
 	public override async Task<object?> Run(PipelineStore store, CancellationToken cancellationToken)
 	{
-		var list = (List<ObjectJob.Test>)store["array"]!;
-		return list.Select(item => new
+		return new List<object>
 		{
-			Title = $"{item.Title}",
-			TitleType = $"{item.Title}--{item.Type}"
-		}).ToList();
+			new
+			{
+				Title = "11",
+				TitleType = "11--12",
+			},
+			new
+			{
+				Title = "21",
+				TitleType = "21--22",
+			}
+		};
 	}
 }

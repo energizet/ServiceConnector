@@ -11,4 +11,8 @@ public interface IClassBuilder : ITypeBuilder
 	IClassBuilder CreateProperty(string name, Type type, string modifier = "public");
 
 	IClassBuilder CreateProperty(string name, string type, string modifier = "public");
+
+	IClassBuilder CreateMethod(string name, Type type, string arguments, string body, string modifier = "public");
+
+	IClassBuilder CreateMethod(string name, string type, string arguments, string body, string modifier = "public");
 }

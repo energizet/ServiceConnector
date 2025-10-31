@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using ServiceConnector.Common;
+using ServiceConnector.TypeBuilder;
 
 namespace ServiceConnector.Web.Registrars;
 
@@ -35,7 +36,7 @@ public class RequestPipelineLoader(
 			yield break;
 		}
 
-		var loadContext = new PipelineLoadContext();
+		var loadContext = new LoadContextStore(new PipelineLoadContext());
 		foreach (var element in pipelines!)
 		{
 			if (!TryDeserialize<PipelineDefinition>(element, out var definition))
