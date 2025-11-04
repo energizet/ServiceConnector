@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace ServiceConnector.Common;
 
 public abstract class Store<T>(Store<T>? parentStore = null)
@@ -19,7 +21,7 @@ public abstract class Store<T>(Store<T>? parentStore = null)
 		return value!;
 	}
 
-	public bool TryGetValue(string key, out T? value)
+	public bool TryGetValue(string key, [MaybeNullWhen(false)] out T value)
 	{
 		if (_store.TryGetValue(key, out value))
 		{

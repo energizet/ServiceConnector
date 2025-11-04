@@ -49,7 +49,7 @@ public class RequestPipelineLoader(
 				throw new ArgumentException($"Invalid pipeline definition in file {file}");
 			}
 
-			definition.RequestType = new { Name = "" }.GetType(); // TODO definition.Request
+			definition.RequestType = typeof(string); //new { Name = "" }.GetType(); // TODO definition.Request
 			definition.File = file;
 			definition.FileHash = hash;
 			definition.LoadContext = loadContext;

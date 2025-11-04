@@ -80,7 +80,7 @@ public class ServiceConnectorRegistrar(
 			var job = jobBuilder.Create(definition.RequestId, element);
 			job.Definition = definition;
 			job.Linker = graphBuilder.AddNode(job);
-			job.TypeBuilder = new(factory);
+			job.TypeBuilder = new(factory, new());
 
 			try
 			{

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 
 namespace ServiceConnector.TypeBuilder;
@@ -62,6 +63,12 @@ public static class TypeExtensions
 			.MeAndBaseClassesAndInterfaces()
 			.FirstOrDefault(item =>
 				item.IsGenericType && item.GetGenericTypeDefinition() == findType);
+	}
+
+	public static bool TryTo(this Type type, Type findType, [MaybeNullWhen(false)] out Type result)
+	{
+		result = type.To(findType);
+		return result != null;
 	}
 
 	public static string ToDisplayString(this Type type)

@@ -8,17 +8,14 @@ namespace ServiceConnector.Jobs;
 
 public interface IArray;
 
-public class TypeBuilder(AssemblyBuilderFactory factory)
+public class TypeBuilder(AssemblyBuilderFactory factory,TypeFinder finder)
 {
 	public Type BuildType(TypesStore types, JsonElement data, string typeName)
 	{
 		switch (data.ValueKind)
 		{
 			case JsonValueKind.String:
-				// TODO
-				//var expression = Create().GetValueExpression(null!, data.GetString()!, types, typeof(void));
-				//return expression.Type.GenericTypeArguments.Last();
-				return typeof(string);
+				return finder.ParseType(data.GetString()!, types);
 			case JsonValueKind.True or JsonValueKind.False:
 				return typeof(bool);
 			case JsonValueKind.Number:
@@ -60,17 +57,6 @@ public class TypeBuilder(AssemblyBuilderFactory factory)
 
 				return builder.AssemblyBuilder.Build().First();
 			}
-		}
-	}
-
-	public class Arr : IArray, IEnumerable
-	{
-		public int Item_0 { get; set; }
-
-		public IEnumerator GetEnumerator()
-		{
-			yield return Item_0;
-			yield break;
 		}
 	}
 

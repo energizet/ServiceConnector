@@ -30,6 +30,15 @@
         }
       },
       {
+        "Type": "Mapping",
+        "Id": "result",
+        "List": "$array",
+        "Map": {
+          "Title": "$item.Title",
+          "TitleType": "{{$item.Title}}--{{$item.Type}}"
+        }
+      },
+      {
         "Type": "Object",
         "Id": "array",
         "Data": [
@@ -48,13 +57,22 @@
         ]
       },
       {
-        "Type": "Mapping",
-        "Id": "result",
-        "List": "$array",
-        "Map": {
-          "Title": "$item.Title",
-          "TitleType": "{{$item.Title}}--{{$item.Type}}"
-        }
+        "Type": "Object",
+        "Id": "variable",
+        "Data": [
+          {
+            "Title": "$array.0.title",
+            "Type": "$array.0.Type",
+            "Icon": "$array.0.Icon",
+            "Target": "$array.0.Target"
+          },
+          {
+            "Title": "$array.1.title",
+            "Type": "$array.1.Type",
+            "Icon": "$array.1.Icon",
+            "Action": "$array.1.Action"
+          }
+        ]
       }
     ]
   }
