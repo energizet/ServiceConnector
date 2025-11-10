@@ -78,9 +78,9 @@ public class ServiceConnectorRegistrar(
 		foreach (var element in definition.Pipeline)
 		{
 			var job = jobBuilder.Create(definition.RequestId, element);
+			var linker = graphBuilder.AddNode(job);
 			job.Definition = definition;
-			job.Linker = graphBuilder.AddNode(job);
-			job.TypeBuilder = new(factory, new());
+			job.TypeBuilder = new(factory, new(linker), new());
 
 			try
 			{

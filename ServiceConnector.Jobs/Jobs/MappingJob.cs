@@ -15,7 +15,7 @@ public class MappingJob(MappingJobConfig config) : BaseJob<MappingJobConfig>(con
 {
 	public override async Task<Type> Compile(TypesStore types, CancellationToken cancellationToken)
 	{
-		Linker.Link("array");
+		//Linker.Link("array");
 		return typeof(List<object>);
 	}
 

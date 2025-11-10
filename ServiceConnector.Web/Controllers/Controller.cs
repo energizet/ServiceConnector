@@ -15,7 +15,7 @@ public class Controller(
 		PropertyNameCaseInsensitive = true,
 	};
 
-	[HttpPost(":requestId")]
+	[HttpPost("{requestId}")]
 	public async Task<object?> Call(string requestId, [FromBody] JsonElement? request, CancellationToken token)
 	{
 		var (runner, definition) = finder.Get(requestId);

@@ -6,9 +6,9 @@ using ServiceConnector.TypeBuilder;
 
 namespace ServiceConnector.Jobs;
 
-public interface IArray;
+public interface IArray : IEnumerable;
 
-public class TypeBuilder(AssemblyBuilderFactory factory,TypeFinder finder)
+public class TypeBuilder(AssemblyBuilderFactory factory, TypeFinder finder, ExpressionGeneratorFactory generator)
 {
 	public Type BuildType(TypesStore types, JsonElement data, string typeName)
 	{
@@ -25,7 +25,7 @@ public class TypeBuilder(AssemblyBuilderFactory factory,TypeFinder finder)
 			case JsonValueKind.Array:
 			{
 				var builder = factory.Create(typeName)
-					.CreateClass<object>([typeof(IArray), typeof(IEnumerable)], typeName);
+					.CreateClass<object>([typeof(IArray)], typeName);
 
 				var elements = data.EnumerateArray().ToList();
 				var enumeratorBody = new List<string>(elements.Count + 1);
@@ -60,14 +60,13 @@ public class TypeBuilder(AssemblyBuilderFactory factory,TypeFinder finder)
 		}
 	}
 
-	public Expression BuildObject(Expression store, JsonElement data, Type resultType, TypesStore types)
+	public Expression BuildObject(TypesStore types, JsonElement data, Type resultType, ParameterExpression store)
 	{
 		switch (data.ValueKind)
 		{
 			case JsonValueKind.String:
-				// TODO
-				//return Create().GetValueExpression(store, data.GetString()!, types, resultType);
-				return Expression.Constant(data.GetString());
+				var lambda = generator.Create().GetValue(data.GetString()!, types);
+				return Expression.Invoke(lambda, store);
 			case JsonValueKind.True:
 				return Expression.Constant(true);
 			case JsonValueKind.False:
@@ -86,7 +85,7 @@ public class TypeBuilder(AssemblyBuilderFactory factory,TypeFinder finder)
 					var propertyInfo = resultType.GetProperty($"Item_{i}")!;
 					memberBindings.Add(Expression.Bind(
 						propertyInfo,
-						BuildObject(store, elements[i], propertyInfo.PropertyType, types)
+						BuildObject(types, elements[i], propertyInfo.PropertyType, store)
 					));
 				}
 
@@ -102,7 +101,7 @@ public class TypeBuilder(AssemblyBuilderFactory factory,TypeFinder finder)
 					var propertyInfo = resultType.GetProperty(child.Name)!;
 					memberBindings.Add(Expression.Bind(
 						propertyInfo,
-						BuildObject(store, child.Value, propertyInfo.PropertyType, types)
+						BuildObject(types, child.Value, propertyInfo.PropertyType, store)
 					));
 				}
 

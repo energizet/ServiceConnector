@@ -4,7 +4,7 @@ using ServiceConnector.TypeBuilder;
 
 namespace ServiceConnector.Jobs;
 
-public class TypeFinder
+public class TypeFinder(ILinker linker)
 {
 	public Type ParseType(string value, TypesStore types)
 	{
@@ -18,7 +18,7 @@ public class TypeFinder
 			return typeof(string);
 		}
 
-		return ParseType(value.AsSpan()[1..], types);
+		return MakeNullable(ParseType(value.AsSpan()[1..], types));
 	}
 
 	private Type ParseType(ReadOnlySpan<char> value, TypesStore types)
@@ -29,11 +29,13 @@ public class TypeFinder
 			separator = value.Length;
 		}
 
-		var variableName = value[..separator];
-		if (!types.TryGetValue(variableName.ToString(), out var type))
+		var variableName = value[..separator].ToString();
+		if (!types.TryGetValue(variableName, out var type))
 		{
 			throw new ArgumentException($"Type {variableName} doesn't exist");
 		}
+
+		linker.Link(variableName);
 
 		for (var i = separator + 1; i < value.Length; i++)
 		{
@@ -41,14 +43,7 @@ public class TypeFinder
 
 			if (c is '.')
 			{
-				var name = value[(separator + 1)..i];
-
-				if (!TryGetField(type, name.ToString(), out var fieldType))
-				{
-					throw new ArgumentException($"Type {name} in {value[..separator]} doesn't exist");
-				}
-
-				type = fieldType;
+				type = GetField(value, separator, i, type);
 				separator = i;
 
 				continue;
@@ -57,16 +52,22 @@ public class TypeFinder
 
 		if (separator < value.Length)
 		{
-			var name = value[(separator + 1)..];
-
-			if (!TryGetField(type, name.ToString(), out var fieldType))
-			{
-				throw new ArgumentException($"Type {name} in {value[..separator]} doesn't exist");
-			}
-
-			type = fieldType;
+			type = GetField(value, separator, value.Length, type);
 		}
 
+		return type;
+	}
+
+	private static Type GetField(ReadOnlySpan<char> value, int separator, int i, Type type)
+	{
+		var name = value[(separator + 1)..i].ToString();
+
+		if (!TryGetField(type, name, out var fieldType))
+		{
+			throw new ArgumentException($"Type {name} in {value[..separator]} doesn't exist");
+		}
+
+		type = fieldType;
 		return type;
 	}
 
@@ -78,42 +79,59 @@ public class TypeFinder
 			return outType != null;
 		}
 
-		if (type.TryTo(typeof(Dictionary<,>), out var dict))
+		if (type.TryTo(typeof(Dictionary<,>), out var map))
 		{
-			outType = dict.GetGenericArguments()[1];
+			if (type.GenericTypeArguments[0].TryTo(typeof(int), out _) && !int.TryParse(name, out _))
+			{
+				outType = null;
+				return false;
+			}
+
+			outType = map.GetGenericArguments()[1];
 			return true;
 		}
 
-		if (type.TryTo(typeof(IEnumerable<>), out var list))
+		if (type.TryTo(typeof(IReadOnlyList<>), out var list))
 		{
+			if (!int.TryParse(name, out _))
+			{
+				outType = null;
+				return false;
+			}
+
 			outType = list.GetGenericArguments()[0];
 			return true;
 		}
 
+		var fields = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
 
 		foreach (var field in type.GetFields())
 		{
-			if (string.Equals(field.Name, name, StringComparison.OrdinalIgnoreCase))
-			{
-				outType = field.FieldType;
-				return true;
-			}
+			fields.Add(field.Name, field.FieldType);
 		}
 
 		foreach (var field in type.GetProperties())
 		{
-			if (string.Equals(field.Name, name, StringComparison.OrdinalIgnoreCase))
-			{
-				outType = field.PropertyType;
-				return true;
-			}
+			fields.Add(field.Name, field.PropertyType);
 		}
 
-		outType = null;
-		return false;
+		return fields.TryGetValue(name, out outType);
 	}
 
-	private int FindMatchingBracket(ReadOnlySpan<char> value, char openBracket = '{', char closeBracket = '}')
+	private static Type MakeNullable(Type type)
+	{
+		if (
+			type.TryTo(typeof(ValueType), out _) &&
+			!type.TryTo(typeof(Nullable<>), out _)
+		)
+		{
+			return typeof(Nullable<>).MakeGenericType(type);
+		}
+
+		return type;
+	}
+
+	private static int FindMatchingBracket(ReadOnlySpan<char> value, char openBracket = '{', char closeBracket = '}')
 	{
 		var depth = 0;
 		for (var i = 0; i < value.Length; i++)

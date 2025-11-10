@@ -70,7 +70,8 @@
             "Title": "$array.1.title",
             "Type": "$array.1.Type",
             "Icon": "$array.1.Icon",
-            "Action": "$array.1.Action"
+            "Action": "$array.1.Action",
+            "Action2": "$array.1"
           }
         ]
       }

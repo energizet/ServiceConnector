@@ -32,7 +32,7 @@ public class ObjectJob(ObjectJobConfig config, ILogger<ObjectJob> logger) : Base
 	{
 		var store = Expression.Parameter(typeof(PipelineStore), "store");
 
-		var block = TypeBuilder.BuildObject(store, Config.Data, _resultType, types);
+		var block = TypeBuilder.BuildObject(types, Config.Data, _resultType, store);
 		block = Expression.Convert(block, typeof(object));
 
 		return Expression.Lambda<Func<PipelineStore, object?>>(block, store)

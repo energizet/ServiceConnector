@@ -13,7 +13,6 @@ public abstract class BaseJob<T>(T config) : IJob
 	protected T Config => config;
 	public string Id => Config.Id;
 	public PipelineDefinition Definition { get; set; } = null!;
-	public ILinker Linker { get; set; } = null!;
 	public TypeBuilder TypeBuilder { get; set; } = null!;
 	public abstract Task<Type> Compile(TypesStore types, CancellationToken cancellationToken);
 	public abstract Task<object?> Run(PipelineStore store, CancellationToken cancellationToken);
@@ -23,7 +22,6 @@ public interface IJob : IRunner
 {
 	string Id { get; }
 	PipelineDefinition Definition { set; }
-	ILinker Linker { set; }
 	TypeBuilder TypeBuilder { set; }
 	Task<Type> Compile(TypesStore types, CancellationToken cancellationToken);
 }
