@@ -13,7 +13,7 @@ public class ServiceConnectorRegistrar(
 	IOptions<ServiceConnectorConfig> config
 ) : IHostedService
 {
-	private ServiceConnectorConfig _config = config.Value;
+	private readonly ServiceConnectorConfig _config = config.Value;
 
 	public async Task StartAsync(CancellationToken cancellationToken)
 	{

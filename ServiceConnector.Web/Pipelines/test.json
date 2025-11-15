@@ -2,7 +2,15 @@
   {
     "RequestId": "test-request",
     "Request": {
-      "Name": "string"
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ]
     },
     "Pipeline": [
       {

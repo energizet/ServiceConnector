@@ -20,10 +20,15 @@ public class Controller(
 	{
 		var (runner, definition) = finder.Get(requestId);
 
+		var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+		foreach (var header in HttpContext.Request.Headers)
+		{
+			headers.Add(header.Key, header.Value.ToString());
+		}
+
 		var store = new PipelineStore
 		{
-			["headers"] = HttpContext.Request.Headers
-				.ToDictionary(item => item.Key, item => item.Value.ToString()),
+			["headers"] = headers,
 			["request"] = request?.Deserialize(definition.RequestType, Options),
 		};
 

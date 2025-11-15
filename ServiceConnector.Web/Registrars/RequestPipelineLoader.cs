@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using ServiceConnector.Common;
+using ServiceConnector.Jobs;
 using ServiceConnector.TypeBuilder;
 
 namespace ServiceConnector.Web.Registrars;
@@ -49,7 +50,9 @@ public class RequestPipelineLoader(
 				throw new ArgumentException($"Invalid pipeline definition in file {file}");
 			}
 
-			definition.RequestType = typeof(string); //new { Name = "" }.GetType(); // TODO definition.Request
+			var builder = new TypeBuilderFromSchema(new(loadContext, definition.RequestId));
+
+			definition.RequestType = builder.BuildType(definition.Request, definition.RequestId + "Request");
 			definition.File = file;
 			definition.FileHash = hash;
 			definition.LoadContext = loadContext;
