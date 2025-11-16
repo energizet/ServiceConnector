@@ -47,15 +47,19 @@ public class TypeBuilder(AssemblyBuilderFactory factory, TypeFinder finder, Expr
 			default:
 			{
 				var builder = factory.Create(typeName)
-					.CreateClass<object>(typeName);
+					.AddUsing("ProtoBuf");
 
+				var classBuilder = builder.CreateClass(typeName)
+					.AddAttribute("ProtoContract");
+
+				var number = 1;
 				foreach (var child in data.EnumerateObject())
 				{
 					var type = BuildType(types, child.Value, typeName + child.Name);
-					builder = builder.CreateProperty(child.Name, type);
+					classBuilder.CreateProperty(child.Name, type, attributes: $"ProtoMember({number++})");
 				}
 
-				return builder.AssemblyBuilder.Build().First();
+				return builder.Build().First();
 			}
 		}
 	}

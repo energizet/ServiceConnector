@@ -11,7 +11,8 @@ public class ServiceConnectorRegistrar(
 	JobBuilder jobBuilder,
 	RunnersStore runnersStore,
 	IOptions<ServiceConnectorConfig> config,
-	IMvcBuilder mvcBuilder
+	IMvcBuilder mvcBuilder,
+	GrpcRegistrar grpcRegistrar
 ) : IHostedService
 {
 	private readonly ServiceConnectorConfig _config = config.Value;
@@ -68,6 +69,7 @@ public class ServiceConnectorRegistrar(
 		foreach (var generator in generators)
 		{
 			mvcBuilder.AddApplicationPart(generator.Generate());
+			grpcRegistrar.MapGrpcService(generator.GrpcControllerType!);
 		}
 
 		DynamicActionDescriptorChangeProvider.Instance.NotifyChanges();

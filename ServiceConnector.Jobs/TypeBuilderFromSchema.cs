@@ -44,9 +44,11 @@ public class TypeBuilderFromSchema(AssemblyBuilderFactory factory)
 			}
 			case "object":
 			{
-				var builder = factory.Create(name);
+				var builder = factory.Create(name)
+					.AddUsing("ProtoBuf");
 
-				var classBuilder = builder.CreateClass(name);
+				var classBuilder = builder.CreateClass(name)
+					.AddAttribute("ProtoContract");
 
 				var required = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 				if (data.TryGetProperty("required", out var reqProp) && reqProp.ValueKind == JsonValueKind.Array)
@@ -59,6 +61,7 @@ public class TypeBuilderFromSchema(AssemblyBuilderFactory factory)
 
 				if (data.TryGetProperty("properties", out var props) && props.ValueKind == JsonValueKind.Object)
 				{
+					var number = 1;
 					foreach (var property in props.EnumerateObject())
 					{
 						var propName = property.Name;
@@ -70,7 +73,7 @@ public class TypeBuilderFromSchema(AssemblyBuilderFactory factory)
 							propType = MakeNullable(propType);
 						}
 
-						classBuilder.CreateProperty(propName, propType);
+						classBuilder.CreateProperty(propName, propType, attributes: $"ProtoMember({number++})");
 					}
 				}
 

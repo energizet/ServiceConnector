@@ -6,7 +6,14 @@ public sealed class InterfaceBuilder(Type baseType, string name, AssemblyBuilder
 	: BaseTypeBuilder(name, assemblyBuilder), IInterfaceBuilder
 {
 	public Type BaseType => baseType;
+	private readonly List<string> _attributes = [];
 	private readonly List<string> _methods = [];
+
+	public IInterfaceBuilder AddAttribute(string attribute)
+	{
+		_attributes.Add($"[{attribute}]");
+		return this;
+	}
 
 	public IInterfaceBuilder CreateMethod(string name, Type returnType, List<string> methodParameters)
 	{
@@ -29,6 +36,7 @@ public sealed class InterfaceBuilder(Type baseType, string name, AssemblyBuilder
 		}
 
 		return $$"""
+		         {{string.Join('\n', _attributes)}}
 		         {{header}} {
 		         {{string.Join('\n', _methods)}}
 		         }

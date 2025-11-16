@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc.Infrastructure;
+using ProtoBuf.Grpc.Server;
 using ServiceConnector.Common;
 using ServiceConnector.Web.Configs;
 
@@ -21,10 +22,8 @@ public static class RegistrarExtensions
 		services.AddEndpointsApiExplorer();
 		services.AddSwaggerGen();
 
-		//services.AddGrpc(opt =>
-		//{
-		//	opt.EnableDetailedErrors = true;
-		//});
+		services.AddCodeFirstGrpc(opt => opt.EnableDetailedErrors = true);
+		services.AddCodeFirstGrpcReflection();
 
 		services.AddSingleton(JobBuilder.Create);
 		services.AddSingleton<RequestPipelineLoader>();
@@ -32,6 +31,7 @@ public static class RegistrarExtensions
 		services.AddSingleton<IRunnerFinder>(provider => provider.GetRequiredService<RunnersStore>());
 		services.AddHostedService<ServiceConnectorRegistrar>();
 		services.AddSingleton(controllers);
+		services.AddSingleton<GrpcRegistrar>();
 
 		services.AddSingleton<IActionDescriptorChangeProvider>(DynamicActionDescriptorChangeProvider.Instance);
 
@@ -48,8 +48,10 @@ public static class RegistrarExtensions
 
 		app.UseHttpsRedirection();
 
-		//app.MapGrpcService<ServiceConnectorGrpc>();
-		//app.MapGrpcReflectionService();
+		app.Services.GetRequiredService<GrpcRegistrar>().Init(app);
+
+		//app.MapGrpcService<>();
+		app.MapCodeFirstGrpcReflectionService();
 
 		return app;
 	}

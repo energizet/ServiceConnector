@@ -42,7 +42,7 @@ public partial class AssemblyBuilder(string assemblyName, string ns, LoadContext
 
 	public IClassBuilder CreateClass(Type baseType, string className)
 	{
-		return CreateClass(baseType, [], className);
+		return CreateClass(baseType, new List<string>(), className);
 	}
 
 	public IInterfaceBuilder CreateInterface(string interfaceName)
@@ -61,6 +61,11 @@ public partial class AssemblyBuilder(string assemblyName, string ns, LoadContext
 	}
 
 	public IClassBuilder CreateClass(Type baseType, List<Type> interfaces, string className)
+	{
+		return CreateClass(baseType, interfaces.Select(x => x.ToDisplayString()).ToList(), className);
+	}
+
+	public IClassBuilder CreateClass(Type baseType, List<string> interfaces, string className)
 	{
 		var classBuilder = new ClassBuilder(baseType, interfaces, className, this);
 		_typeBuilders.Add(classBuilder);

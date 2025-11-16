@@ -3,7 +3,7 @@ using ServiceConnector.TypeBuilder.Interfaces;
 
 namespace ServiceConnector.TypeBuilder.Builders;
 
-public class ClassBuilder(Type baseType, List<Type> interfaces, string name, AssemblyBuilder assemblyBuilder)
+public class ClassBuilder(Type baseType, List<string> interfaces, string name, AssemblyBuilder assemblyBuilder)
 	: BaseTypeBuilder(name, assemblyBuilder), IClassBuilder
 {
 	public Type BaseType => baseType;
@@ -18,33 +18,42 @@ public class ClassBuilder(Type baseType, List<Type> interfaces, string name, Ass
 		return this;
 	}
 
-	public IClassBuilder CreateField(string name, Type type, string modifier = "public")
+	public IClassBuilder CreateField(string name, Type type, string modifier = "public", params string[] attributes)
 	{
-		return CreateField(name, type.ToDisplayString(), modifier);
+		return CreateField(name, type.ToDisplayString(), modifier, attributes);
 	}
 
-	public IClassBuilder CreateField(string name, string type, string modifier = "public")
+	public IClassBuilder CreateField(string name, string type, string modifier = "public", params string[] attributes)
 	{
-		_fields.Add(
-			$$"""
-			      {{modifier}} {{type}} {{name}};
-			  """
-		);
+		var str = $$"""
+		                {{modifier}} {{type}} {{name}};
+		            """;
+		if (attributes.Length > 0)
+		{
+			str = string.Join('\n', attributes.Select(x => $"    [{x}]")) + '\n' + str;
+		}
+
+		_fields.Add(str);
 		return this;
 	}
 
-	public IClassBuilder CreateProperty(string name, Type type, string modifier = "public")
+	public IClassBuilder CreateProperty(string name, Type type, string modifier = "public", params string[] attributes)
 	{
-		return CreateProperty(name, type.ToDisplayString(), modifier);
+		return CreateProperty(name, type.ToDisplayString(), modifier, attributes);
 	}
 
-	public IClassBuilder CreateProperty(string name, string type, string modifier = "public")
+	public IClassBuilder CreateProperty(string name, string type, string modifier = "public",
+		params string[] attributes)
 	{
-		_properties.Add(
-			$$"""
-			      {{modifier}} {{type}} {{name}} { get; set; }
-			  """
-		);
+		var str = $$"""
+		                {{modifier}} {{type}} {{name}} { get; set; }
+		            """;
+		if (attributes.Length > 0)
+		{
+			str = string.Join('\n', attributes.Select(x => $"    [{x}]")) + '\n' + str;
+		}
+
+		_properties.Add(str);
 		return this;
 	}
 
@@ -57,18 +66,18 @@ public class ClassBuilder(Type baseType, List<Type> interfaces, string name, Ass
 	public IClassBuilder CreateMethod(string name, string type, string arguments, string body,
 		string modifier = "public", params string[] attributes)
 	{
-		var methodStr = $$"""
-		                      {{modifier}} {{type}} {{name}}({{arguments}})
-		                      {
-		                          {{string.Join("\n        ", body.Replace("\r\n", "\n").Split("\n"))}}
-		                      }
-		                  """;
+		var str = $$"""
+		                {{modifier}} {{type}} {{name}}({{arguments}})
+		                {
+		                    {{string.Join("\n        ", body.Replace("\r\n", "\n").Split("\n"))}}
+		                }
+		            """;
 		if (attributes.Length > 0)
 		{
-			methodStr = string.Join('\n', attributes.Select(x => $"    [{x}]")) + '\n' + methodStr;
+			str = string.Join('\n', attributes.Select(x => $"    [{x}]")) + '\n' + str;
 		}
 
-		_methods.Add(methodStr);
+		_methods.Add(str);
 		return this;
 	}
 
@@ -78,7 +87,7 @@ public class ClassBuilder(Type baseType, List<Type> interfaces, string name, Ass
 
 		if (interfaces.Count > 0)
 		{
-			header = $"{header}, {string.Join(", ", interfaces.Select(x => x.ToDisplayString()))}";
+			header = $"{header}, {string.Join(", ", interfaces)}";
 		}
 
 		var constructors = new List<string>();
