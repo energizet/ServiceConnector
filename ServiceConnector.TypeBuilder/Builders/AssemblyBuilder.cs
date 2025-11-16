@@ -1,4 +1,5 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Reflection;
+using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using ServiceConnector.TypeBuilder.Interfaces;
@@ -9,8 +10,20 @@ public partial class AssemblyBuilder(string assemblyName, string ns, LoadContext
 	: IAssemblyBuilder
 {
 	public string AssemblyName { get; } = IgnoredSymbolsRegex().Replace(assemblyName, "");
+	public Assembly? BuiltAssembly { get; private set; }
 	private readonly string _namespace = IgnoredSymbolsRegex().Replace(ns, "");
 	private readonly List<ITypeBuilder> _typeBuilders = [];
+	private readonly HashSet<string> _usings = [];
+
+	public IAssemblyBuilder AddUsing(string @using)
+	{
+		if (!string.IsNullOrWhiteSpace(@using))
+		{
+			_usings.Add(@using);
+		}
+
+		return this;
+	}
 
 	public IClassBuilder CreateClass(string className)
 	{
@@ -75,6 +88,8 @@ public partial class AssemblyBuilder(string assemblyName, string ns, LoadContext
 		var refs = loadContextStore.References.Values;
 
 		var source = $$"""
+		               {{string.Join("\n", _usings.OrderBy(x => x).Select(x => $"using {x};"))}}
+
 		               namespace {{_namespace}};
 
 		               {{string.Join("\n\n", _typeBuilders.Select(x => x.Build()))}}
@@ -88,9 +103,9 @@ public partial class AssemblyBuilder(string assemblyName, string ns, LoadContext
 
 		var compilation = CSharpCompilation.Create($"{AssemblyName}GenAssembly", [syntax], refs, options);
 
-		var assembly = loadContextStore.Load(compilation);
+		BuiltAssembly = loadContextStore.Load(compilation);
 
-		return _typeBuilders.Select(builder => builder.SaveType(assembly, _namespace)).ToList();
+		return _typeBuilders.Select(builder => builder.SaveType(BuiltAssembly, _namespace)).ToList();
 	}
 
 	[GeneratedRegex(@"\W")]

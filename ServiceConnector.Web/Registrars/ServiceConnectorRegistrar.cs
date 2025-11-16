@@ -10,7 +10,8 @@ public class ServiceConnectorRegistrar(
 	RequestPipelineLoader loader,
 	JobBuilder jobBuilder,
 	RunnersStore runnersStore,
-	IOptions<ServiceConnectorConfig> config
+	IOptions<ServiceConnectorConfig> config,
+	IMvcBuilder mvcBuilder
 ) : IHostedService
 {
 	private readonly ServiceConnectorConfig _config = config.Value;
@@ -49,8 +50,9 @@ public class ServiceConnectorRegistrar(
 
 			try
 			{
-				var runner = await Compile(definition, cancellationToken);
-				runnersStore[requestId] = (runner, definition);
+				var (runner, resultType) = await Compile(definition, cancellationToken);
+				definition.ControllerGenerator.AddMethod(requestId, definition.RequestType, resultType);
+				runnersStore[requestId] = runner;
 				logger.LogInformation("[{RequestId}] Request success load", requestId);
 				successCount++;
 			}
@@ -61,11 +63,20 @@ public class ServiceConnectorRegistrar(
 			}
 		}
 
+		var generators = definitions.GroupBy(x => x.ControllerGenerator).Select(x => x.Key).ToList();
+
+		foreach (var generator in generators)
+		{
+			mvcBuilder.AddApplicationPart(generator.Generate());
+		}
+
+		DynamicActionDescriptorChangeProvider.Instance.NotifyChanges();
+
 		logger.LogInformation("Success loaded {SuccessLoadCount}{NL}Load errors {ErrorLoadCount}",
 			successCount, Environment.NewLine, errorCount);
 	}
 
-	private async Task<IRunner> Compile(PipelineDefinition definition, CancellationToken cancellationToken)
+	private async Task<(IRunner, Type)> Compile(PipelineDefinition definition, CancellationToken cancellationToken)
 	{
 		var types = new TypesStore
 		{
@@ -75,6 +86,7 @@ public class ServiceConnectorRegistrar(
 
 		var factory = new AssemblyBuilderFactory(definition.LoadContext, definition.RequestId);
 		var graphBuilder = new JobGraph.Builder();
+		var resultType = typeof(object);
 		foreach (var element in definition.Pipeline)
 		{
 			var job = jobBuilder.Create(definition.RequestId, element);
@@ -84,7 +96,7 @@ public class ServiceConnectorRegistrar(
 
 			try
 			{
-				types[job.Id] = await job.Compile(types, cancellationToken);
+				types[job.Id] = resultType = await job.Compile(types, cancellationToken);
 			}
 			catch (Exception ex)
 			{
@@ -93,6 +105,6 @@ public class ServiceConnectorRegistrar(
 			}
 		}
 
-		return graphBuilder.Build();
+		return (graphBuilder.Build(), resultType);
 	}
 }

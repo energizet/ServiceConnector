@@ -14,4 +14,5 @@ public class PipelineDefinition
 	public string File { get; set; } = null!;
 	public string FileHash { get; set; } = null!;
 	public LoadContextStore LoadContext { get; set; } = null!;
+	public IIControllerGenerator ControllerGenerator { get; set; } = null!;
 }

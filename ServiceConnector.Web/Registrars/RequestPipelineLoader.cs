@@ -38,6 +38,9 @@ public class RequestPipelineLoader(
 		}
 
 		var loadContext = new LoadContextStore(new PipelineLoadContext());
+
+		var generator = new ControllerGenerator(loadContext, Path.GetFileName(file));
+
 		foreach (var element in pipelines!)
 		{
 			if (!TryDeserialize<PipelineDefinition>(element, out var definition))
@@ -56,6 +59,7 @@ public class RequestPipelineLoader(
 			definition.File = file;
 			definition.FileHash = hash;
 			definition.LoadContext = loadContext;
+			definition.ControllerGenerator = generator;
 
 			yield return definition;
 		}

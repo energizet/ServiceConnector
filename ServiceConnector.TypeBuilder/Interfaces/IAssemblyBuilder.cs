@@ -1,8 +1,13 @@
-﻿namespace ServiceConnector.TypeBuilder.Interfaces;
+﻿using System.Reflection;
+
+namespace ServiceConnector.TypeBuilder.Interfaces;
 
 public interface IAssemblyBuilder
 {
 	string AssemblyName { get; }
+	Assembly? BuiltAssembly { get; }
+
+	IAssemblyBuilder AddUsing(string @using);
 	IClassBuilder CreateClass(string name);
 	IClassBuilder CreateClass<T>(string name);
 	IClassBuilder CreateClass<T>(List<Type> interfaces, string name);

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using ServiceConnector.Common;
 using ServiceConnector.Web.Configs;
 
@@ -15,7 +16,7 @@ public static class RegistrarExtensions
 			policy.AllowAnyMethod();
 			policy.AllowAnyOrigin();
 		}));
-		services.AddControllers();
+		var controllers = services.AddControllers();
 
 		services.AddEndpointsApiExplorer();
 		services.AddSwaggerGen();
@@ -30,6 +31,9 @@ public static class RegistrarExtensions
 		services.AddSingleton<RunnersStore>();
 		services.AddSingleton<IRunnerFinder>(provider => provider.GetRequiredService<RunnersStore>());
 		services.AddHostedService<ServiceConnectorRegistrar>();
+		services.AddSingleton(controllers);
+
+		services.AddSingleton<IActionDescriptorChangeProvider>(DynamicActionDescriptorChangeProvider.Instance);
 
 		return services;
 	}

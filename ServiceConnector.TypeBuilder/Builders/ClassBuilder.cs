@@ -7,9 +7,16 @@ public class ClassBuilder(Type baseType, List<Type> interfaces, string name, Ass
 	: BaseTypeBuilder(name, assemblyBuilder), IClassBuilder
 {
 	public Type BaseType => baseType;
+	private readonly List<string> _attributes = [];
 	private readonly List<string> _fields = [];
 	private readonly List<string> _properties = [];
 	private readonly List<string> _methods = [];
+
+	public IClassBuilder AddAttribute(string attribute)
+	{
+		_attributes.Add($"[{attribute}]");
+		return this;
+	}
 
 	public IClassBuilder CreateField(string name, Type type, string modifier = "public")
 	{
@@ -41,33 +48,33 @@ public class ClassBuilder(Type baseType, List<Type> interfaces, string name, Ass
 		return this;
 	}
 
-	public IClassBuilder CreateMethod(string name, Type type, string arguments, string body, string modifier = "public")
+	public IClassBuilder CreateMethod(string name, Type type, string arguments, string body, string modifier = "public",
+		params string[] attributes)
 	{
-		return CreateMethod(name, type.ToDisplayString(), arguments, body, modifier);
+		return CreateMethod(name, type.ToDisplayString(), arguments, body, modifier, attributes);
 	}
 
 	public IClassBuilder CreateMethod(string name, string type, string arguments, string body,
-		string modifier = "public")
+		string modifier = "public", params string[] attributes)
 	{
-		_methods.Add(
-			$$"""
-			      {{modifier}} {{type}} {{name}}({{arguments}})
-			      {
-			          {{string.Join("\n        ", body.Replace("\r\n", "\n").Split("\n"))}}
-			      }
-			  """
-		);
+		var methodStr = $$"""
+		                      {{modifier}} {{type}} {{name}}({{arguments}})
+		                      {
+		                          {{string.Join("\n        ", body.Replace("\r\n", "\n").Split("\n"))}}
+		                      }
+		                  """;
+		if (attributes.Length > 0)
+		{
+			methodStr = string.Join('\n', attributes.Select(x => $"    [{x}]")) + '\n' + methodStr;
+		}
+
+		_methods.Add(methodStr);
 		return this;
 	}
 
 	public override string Build()
 	{
-		var header = $"public sealed class {Name}";
-
-		if (BaseType != typeof(void))
-		{
-			header = $"{header} : {BaseType.ToDisplayString()}";
-		}
+		var header = $"public sealed class {Name} : {BaseType.ToDisplayString()}";
 
 		if (interfaces.Count > 0)
 		{
@@ -75,7 +82,9 @@ public class ClassBuilder(Type baseType, List<Type> interfaces, string name, Ass
 		}
 
 		var constructors = new List<string>();
-		var baseConstructors = BaseType.GetConstructors(BindingFlags.Public | BindingFlags.Instance);
+		var publicConstructors = BaseType.GetConstructors();
+		var privateConstructors = BaseType.GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance);
+		var baseConstructors = publicConstructors.Union(privateConstructors).Where(x => !x.IsPrivate);
 		foreach (var constructor in baseConstructors)
 		{
 			var parameters = new List<string>();
@@ -96,6 +105,7 @@ public class ClassBuilder(Type baseType, List<Type> interfaces, string name, Ass
 		}
 
 		return $$"""
+		         {{string.Join('\n', _attributes)}}
 		         {{header}} {
 		         {{string.Join('\n', _fields)}}
 		         {{string.Join('\n', _properties)}}

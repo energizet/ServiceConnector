@@ -6,7 +6,7 @@ namespace ServiceConnector.TypeBuilder.Builders;
 
 public abstract partial class BaseTypeBuilder(string name, AssemblyBuilder assemblyBuilder) : ITypeBuilder
 {
-	public string Name { get; } = NameRegex().Replace($"{name}Dynamic", "");
+	public string Name { get; } = NameRegex().Replace($"{name}Dynamic", "_");
 	public AssemblyBuilder AssemblyBuilder => assemblyBuilder;
 	public Type? BuiltType { get; private set; }
 

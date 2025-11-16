@@ -124,8 +124,8 @@ public class TypeParserTests
 	private class TestArray : IArray
 	{
 		public int Item_0 { get; set; }
-		public string Item_1 { get; set; }
-		public TestObject Item_2 { get; set; }
+		public string Item_1 { get; set; } = null!;
+		public TestObject Item_2 { get; set; } = null!;
 
 		public IEnumerator GetEnumerator()
 		{
@@ -138,8 +138,8 @@ public class TypeParserTests
 	private class TestObject
 	{
 		public int Item0 { get; set; }
-		public string Item1 { get; set; }
-		public string SomeField;
+		public string Item1 { get; set; } = null!;
+		public string SomeField = null!;
 	}
 
 	private class LinkerTest : ILinker
