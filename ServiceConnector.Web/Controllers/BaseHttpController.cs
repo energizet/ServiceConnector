@@ -3,7 +3,7 @@ using ServiceConnector.Common;
 
 namespace ServiceConnector.Web.Controllers;
 
-public abstract class BaseHttpController(IRunnerFinder finder) : ControllerBase
+public abstract class BaseHttpController(IRunnerFinder finder, IServiceProvider provider) : ControllerBase
 {
 	protected async Task<TResponse?> Call<TRequest, TResponse>(string requestId, TRequest request, HttpContext context,
 		CancellationToken token)
@@ -22,6 +22,6 @@ public abstract class BaseHttpController(IRunnerFinder finder) : ControllerBase
 			["request"] = request,
 		};
 
-		return (TResponse?)await runner.Run(store, token);
+		return (TResponse?)await runner.Run(store, provider, token);
 	}
 }

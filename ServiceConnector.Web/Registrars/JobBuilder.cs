@@ -7,7 +7,7 @@ using ServiceConnector.TypeBuilder;
 
 namespace ServiceConnector.Web.Registrars;
 
-public class JobBuilder(IServiceProvider provider, Dictionary<string, Type> types)
+public class JobBuilder(IServiceProvider provider)
 {
 	private static readonly JsonSerializerOptions Options = new()
 	{
@@ -15,14 +15,9 @@ public class JobBuilder(IServiceProvider provider, Dictionary<string, Type> type
 		PropertyNameCaseInsensitive = true,
 	};
 
-	public static JobBuilder Create(IServiceProvider provider)
-	{
-		var types = typeof(IJob).Assembly.GetTypes()
-			.Where(x => x.GetCustomAttributes<PipelineJobAttribute>(inherit: false).Any())
-			.ToDictionary(x => x.Name.Replace("Job", ""), x => x);
-
-		return new(provider, types);
-	}
+	private static readonly Dictionary<string, Type> Types = typeof(IJob).Assembly.GetTypes()
+		.Where(x => x.GetCustomAttributes<PipelineJobAttribute>(inherit: false).Any())
+		.ToDictionary(x => x.Name.Replace("Job", ""), x => x);
 
 	public IJob Create(string requestId, JsonElement element)
 	{
@@ -34,12 +29,12 @@ public class JobBuilder(IServiceProvider provider, Dictionary<string, Type> type
 		var typeName = GetString(properties, "Type");
 		var id = GetString(properties, "Id");
 
-		if (!types.TryGetValue(typeName, out var type))
+		if (!Types.TryGetValue(typeName, out var type))
 		{
 			throw new ArgumentException($"Unknown job type {typeName}");
 		}
 
-		var configType = type.To(typeof(BaseJob<>))!.GenericTypeArguments.First();
+		var configType = type.To(typeof(BaseJob<,>))!.GenericTypeArguments.First();
 
 		CheckType($"{requestId}.{id}", element, configType);
 		var config = DeserializeConfig(configType, element);

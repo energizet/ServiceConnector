@@ -25,7 +25,7 @@ public static class RegistrarExtensions
 		services.AddCodeFirstGrpc(opt => opt.EnableDetailedErrors = true);
 		services.AddCodeFirstGrpcReflection();
 
-		services.AddSingleton(JobBuilder.Create);
+		services.AddSingleton<JobBuilder>();
 		services.AddSingleton<RequestPipelineLoader>();
 		services.AddSingleton<RunnersStore>();
 		services.AddSingleton<IRunnerFinder>(provider => provider.GetRequiredService<RunnersStore>());

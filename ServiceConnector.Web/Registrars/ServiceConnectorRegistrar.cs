@@ -78,7 +78,7 @@ public class ServiceConnectorRegistrar(
 			successCount, Environment.NewLine, errorCount);
 	}
 
-	private async Task<(IRunner, Type)> Compile(PipelineDefinition definition, CancellationToken cancellationToken)
+	private async Task<(IJobGraph, Type)> Compile(PipelineDefinition definition, CancellationToken cancellationToken)
 	{
 		var types = new TypesStore
 		{

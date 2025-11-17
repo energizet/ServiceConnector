@@ -2,16 +2,16 @@ using ServiceConnector.Common;
 
 namespace ServiceConnector.Web.Registrars;
 
-public partial class JobGraph(List<JobGraph.Node> firsts, JobGraph.Node? last) : IRunner
+public partial class JobGraph(List<JobGraph.Node> firsts, JobGraph.Node? last) : IJobGraph
 {
-	public async Task<object?> Run(PipelineStore store, CancellationToken cancellationToken)
+	public async Task<object?> Run(PipelineStore store, IServiceProvider provider, CancellationToken cancellationToken)
 	{
 		if (last == null)
 		{
 			return null;
 		}
 
-		var tasks = firsts.Select(node => Run(node, store, cancellationToken)).ToList();
+		var tasks = firsts.Select(node => Run(node, store, provider, cancellationToken)).ToList();
 
 		var colors = new Dictionary<Node, NodeColor>();
 		foreach (var node in firsts)
@@ -55,7 +55,7 @@ public partial class JobGraph(List<JobGraph.Node> firsts, JobGraph.Node? last) :
 				}
 
 				colors[nodeTo] = NodeColor.Grey;
-				tasks.Add(Run(nodeTo, store, cancellationToken));
+				tasks.Add(Run(nodeTo, store, provider, cancellationToken));
 			}
 		}
 
@@ -69,12 +69,12 @@ public partial class JobGraph(List<JobGraph.Node> firsts, JobGraph.Node? last) :
 	}
 
 	private static Task<(Node Node, object? Result)> Run(Node node, PipelineStore store,
-		CancellationToken cancellationToken)
+		IServiceProvider provider, CancellationToken cancellationToken)
 	{
 		return Task.Run(async () =>
 		(
 			Node: node,
-			Result: await node.Job.Run(new(store), cancellationToken)
+			Result: await node.Job.CreateRunner(provider, new(store)).Run(cancellationToken)
 		), cancellationToken);
 	}
 

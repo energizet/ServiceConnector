@@ -1,3 +1,3 @@
 namespace ServiceConnector.Common;
 
-public class RunnersStore : Store<IRunner>, IRunnerFinder;
+public class RunnersStore : Store<IJobGraph>, IRunnerFinder;

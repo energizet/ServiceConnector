@@ -27,14 +27,17 @@ public class HttpRequestJobConfig : BaseJobConfig
 }
 
 [PipelineJob]
-public class HttpRequestJob(HttpRequestJobConfig config) : BaseJob<HttpRequestJobConfig>(config)
+public class HttpRequestJob(HttpRequestJobConfig config) : BaseJob<HttpRequestJobConfig, HttpRequestJobRunner>(config)
 {
 	public override async Task<Type> Compile(TypesStore types, CancellationToken cancellationToken)
 	{
 		return typeof(object);
 	}
+}
 
-	public override async Task<object?> Run(PipelineStore store, CancellationToken cancellationToken)
+public class HttpRequestJobRunner(HttpRequestJob job, PipelineStore store) : IRunner
+{
+	public async Task<object?> Run(CancellationToken cancellationToken)
 	{
 		return new();
 	}

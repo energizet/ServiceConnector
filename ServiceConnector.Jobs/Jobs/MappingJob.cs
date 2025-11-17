@@ -11,15 +11,18 @@ public class MappingJobConfig : BaseJobConfig
 }
 
 [PipelineJob]
-public class MappingJob(MappingJobConfig config) : BaseJob<MappingJobConfig>(config)
+public class MappingJob(MappingJobConfig config) : BaseJob<MappingJobConfig, MappingJobRunner>(config)
 {
 	public override async Task<Type> Compile(TypesStore types, CancellationToken cancellationToken)
 	{
 		//Linker.Link("array");
 		return typeof(List<object>);
 	}
+}
 
-	public override async Task<object?> Run(PipelineStore store, CancellationToken cancellationToken)
+public class MappingJobRunner(MappingJob job, PipelineStore store) : IRunner
+{
+	public async Task<object?> Run(CancellationToken cancellationToken)
 	{
 		return new List<object>
 		{

@@ -3,7 +3,7 @@ using ServiceConnector.Common;
 
 namespace ServiceConnector.Web.Controllers;
 
-public abstract class BaseGrpcController(IRunnerFinder finder)
+public abstract class BaseGrpcController(IRunnerFinder finder, IServiceProvider provider)
 {
 	protected async Task<TResponse?> Call<TRequest, TResponse>(string requestId, TRequest request,
 		ServerCallContext context)
@@ -22,6 +22,6 @@ public abstract class BaseGrpcController(IRunnerFinder finder)
 			["request"] = request,
 		};
 
-		return (TResponse?)await runner.Run(store, context.CancellationToken);
+		return (TResponse?)await runner.Run(store, provider, context.CancellationToken);
 	}
 }
