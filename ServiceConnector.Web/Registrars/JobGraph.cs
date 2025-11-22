@@ -5,10 +5,9 @@ namespace ServiceConnector.Web.Registrars;
 
 public partial class JobGraph(List<JobGraph.Node> firsts, JobGraph.Node? last) : IJobGraph
 {
-	public Task<object?> Run(PipelineStore store, IServiceProvider provider,
-		CancellationToken cancellationToken)
+	public Task<object?> Run(PipelineStore store, IServiceProvider provider, CancellationToken cancellationToken)
 	{
-		var runner = new RecursionRunner(firsts, last, store, provider, cancellationToken);
+		var runner = new CyclicRunner(firsts, last, store, provider, cancellationToken);
 		return runner.Run();
 	}
 
