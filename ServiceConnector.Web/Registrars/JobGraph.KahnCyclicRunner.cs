@@ -4,7 +4,7 @@ namespace ServiceConnector.Web.Registrars;
 
 public partial class JobGraph
 {
-	private class CyclicRunner(
+	private class Runner(
 		List<Node> firsts,
 		Node? last,
 		PipelineStore store,
@@ -16,7 +16,7 @@ public partial class JobGraph
 			.CreateLinkedTokenSource(cancellationToken);
 
 		private HashSet<Task<(Node Node, object? Result)>> Tasks { get; set; } = [];
-		private Dictionary<Node, NodeColor> Colors { get; } = [];
+		private Dictionary<Node, DepsVisit> RemainingDeps { get; } = [];
 		private List<Exception> Errors { get; } = [];
 		private CancellationToken CancellationToken => _cancellationSource.Token;
 
@@ -48,7 +48,6 @@ public partial class JobGraph
 				}
 
 				store[node.Job.Id] = result;
-				Colors[node] = NodeColor.Black;
 
 				if (Errors.Count == 0)
 				{
@@ -69,17 +68,25 @@ public partial class JobGraph
 		{
 			foreach (var node in nodes)
 			{
-				if (Colors.ContainsKey(node))
+				RemainingDeps.TryAdd(node, new(node.From.Count));
+				var deps = RemainingDeps[node];
+
+				if (deps.Visited)
 				{
 					continue;
 				}
 
-				if (node.From.Any(x => !Colors.TryGetValue(x, out var from) || from != NodeColor.Black))
+				if (node.From.Count != 0)
+				{
+					RemainingDeps[node] = deps = deps.Decrement();
+				}
+
+				if (deps.Dependencies != 0)
 				{
 					continue;
 				}
 
-				Colors[node] = NodeColor.Grey;
+				RemainingDeps[node] = deps.Visit();
 				Tasks.Add(node.IsAsync ? RunNode(node) : Task.Run(() => RunNode(node)));
 			}
 		}
@@ -92,10 +99,17 @@ public partial class JobGraph
 			);
 		}
 
-		private enum NodeColor
+		private readonly record struct DepsVisit(int Dependencies, bool Visited = false)
 		{
-			Grey,
-			Black,
+			public DepsVisit Decrement()
+			{
+				return this with { Dependencies = Dependencies - 1 };
+			}
+
+			public DepsVisit Visit()
+			{
+				return this with { Visited = true };
+			}
 		}
 	}
 }

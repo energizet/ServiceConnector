@@ -12,7 +12,7 @@ public class ObjectJobConfig : BaseJobConfig
 
 [PipelineJob]
 public class ObjectJob(ObjectJobConfig config, ILogger<ObjectJob> logger)
-	: BaseJob<ObjectJobConfig, ObjectJobRunner>(config)
+	: BaseJob<ObjectJobConfig, ObjectJobRunner>(config, isAsync: false)
 {
 	private Type _resultType = typeof(object);
 	public Func<PipelineStore, object?> GetData = null!;

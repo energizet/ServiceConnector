@@ -11,7 +11,7 @@ public class MappingJobConfig : BaseJobConfig
 }
 
 [PipelineJob]
-public class MappingJob(MappingJobConfig config) : BaseJob<MappingJobConfig, MappingJobRunner>(config)
+public class MappingJob(MappingJobConfig config) : BaseJob<MappingJobConfig, MappingJobRunner>(config, isAsync: false)
 {
 	public override async Task<Type> Compile(TypesStore types, CancellationToken cancellationToken)
 	{

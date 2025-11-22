@@ -7,7 +7,7 @@ public partial class JobGraph(List<JobGraph.Node> firsts, JobGraph.Node? last) :
 {
 	public Task<object?> Run(PipelineStore store, IServiceProvider provider, CancellationToken cancellationToken)
 	{
-		var runner = new CyclicRunner(firsts, last, store, provider, cancellationToken);
+		var runner = new Runner(firsts, last, store, provider, cancellationToken);
 		return runner.Run();
 	}
 
@@ -16,6 +16,7 @@ public partial class JobGraph(List<JobGraph.Node> firsts, JobGraph.Node? last) :
 		public HashSet<Node> From { get; } = [];
 		public HashSet<Node> To { get; } = [];
 		public required IJob Job { get; init; }
+		public bool IsAsync => Job.IsAsync;
 	}
 
 	public class EdgeLinker(Builder builder, IJob to) : ILinker

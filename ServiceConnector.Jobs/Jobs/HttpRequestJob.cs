@@ -32,7 +32,7 @@ public class HttpRequestJob(
 	HttpRequestJobConfig config,
 	ILogger<HttpRequestJob> logger,
 	ExpressionGeneratorFactory generator
-) : BaseJob<HttpRequestJobConfig, HttpRequestJobRunner>(config)
+) : BaseJob<HttpRequestJobConfig, HttpRequestJobRunner>(config, isAsync: true)
 {
 	public Func<PipelineStore, object?> GetUrl { get; private set; } = null!;
 	public Func<PipelineStore, QueryList> GetQuery { get; private set; } = null!;
