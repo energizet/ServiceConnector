@@ -1,10 +1,11 @@
+using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 
 namespace ServiceConnector.Common;
 
 public abstract class Store<T>(Store<T>? parentStore = null)
 {
-	private readonly Dictionary<string, T> _store = new(StringComparer.OrdinalIgnoreCase);
+	private readonly ConcurrentDictionary<string, T> _store = new(StringComparer.OrdinalIgnoreCase);
 
 	public void Set(string key, T value)
 	{

@@ -44,19 +44,4 @@ public partial class JobGraph
 			return new(firsts, _last);
 		}
 	}
-
-	public class Node
-	{
-		public HashSet<Node> From { get; } = [];
-		public HashSet<Node> To { get; } = [];
-		public required IJob Job { get; init; }
-	}
-
-	public class EdgeLinker(Builder builder, IJob to) : ILinker
-	{
-		public void Link(string from)
-		{
-			builder.AddEdge(from, to);
-		}
-	}
 }
