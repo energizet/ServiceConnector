@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using ServiceConnector.Common;
+using ServiceConnector.Jobs;
 using ServiceConnector.TypeBuilder;
 using ServiceConnector.Web.Configs;
 
@@ -12,7 +13,8 @@ public class ServiceConnectorRegistrar(
 	RunnersStore runnersStore,
 	IOptions<ServiceConnectorConfig> config,
 	IMvcBuilder mvcBuilder,
-	GrpcRegistrar grpcRegistrar
+	GrpcRegistrar grpcRegistrar,
+	IServiceProvider provider
 ) : IHostedService
 {
 	private readonly ServiceConnectorConfig _config = config.Value;
@@ -88,13 +90,20 @@ public class ServiceConnectorRegistrar(
 
 		var factory = new AssemblyBuilderFactory(definition.LoadContext, definition.RequestId);
 		var graphBuilder = new JobGraph.Builder();
+
 		var resultType = typeof(object);
 		foreach (var element in definition.Pipeline)
 		{
 			var job = jobBuilder.Create(definition.RequestId, element);
+
 			var linker = graphBuilder.AddNode(job);
+			var finder = ActivatorUtilities.CreateInstance<TypeFinder>(provider, linker);
+			var builder = ActivatorUtilities.CreateInstance<Jobs.TypeBuilder>(provider, factory, finder);
+			var builderFromSchema = ActivatorUtilities.CreateInstance<TypeBuilderFromSchema>(provider, factory);
+
 			job.Definition = definition;
-			job.TypeBuilder = new(factory, new(linker), new());
+			job.TypeBuilder = builder;
+			job.TypeBuilderFromSchema = builderFromSchema;
 
 			try
 			{

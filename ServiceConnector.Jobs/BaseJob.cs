@@ -16,6 +16,7 @@ public abstract class BaseJob<T, TRunner>(T config) : IJob
 	public string Id => Config.Id;
 	public PipelineDefinition Definition { get; set; } = null!;
 	public TypeBuilder TypeBuilder { get; set; } = null!;
+	public TypeBuilderFromSchema TypeBuilderFromSchema { get; set; } = null!;
 	public abstract Task<Type> Compile(TypesStore types, CancellationToken cancellationToken);
 
 	public IRunner CreateRunner(IServiceProvider provider, PipelineStore store)
@@ -29,6 +30,7 @@ public interface IJob
 	string Id { get; }
 	PipelineDefinition Definition { set; }
 	TypeBuilder TypeBuilder { set; }
+	TypeBuilderFromSchema TypeBuilderFromSchema { set; }
 	Task<Type> Compile(TypesStore types, CancellationToken cancellationToken);
 	IRunner CreateRunner(IServiceProvider provider, PipelineStore store);
 }

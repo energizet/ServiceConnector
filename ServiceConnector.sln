@@ -10,6 +10,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServiceConnector.Common", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServiceConnector.Tests", "ServiceConnector.Tests\ServiceConnector.Tests.csproj", "{75563885-1E52-4EFA-BE86-569DB9F08BE7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServiceConnector.TestWeb", "ServiceConnector.TestWeb\ServiceConnector.TestWeb.csproj", "{77AEED55-FC8E-438A-9925-17DDD9B48D92}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -36,5 +38,9 @@ Global
 		{75563885-1E52-4EFA-BE86-569DB9F08BE7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{75563885-1E52-4EFA-BE86-569DB9F08BE7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{75563885-1E52-4EFA-BE86-569DB9F08BE7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{77AEED55-FC8E-438A-9925-17DDD9B48D92}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{77AEED55-FC8E-438A-9925-17DDD9B48D92}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{77AEED55-FC8E-438A-9925-17DDD9B48D92}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{77AEED55-FC8E-438A-9925-17DDD9B48D92}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

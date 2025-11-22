@@ -4,6 +4,9 @@
     "Request": {
       "type": "object",
       "properties": {
+        "header": {
+          "type": "string"
+        },
         "name": {
           "type": "string"
         }
@@ -15,26 +18,45 @@
     "Pipeline": [
       {
         "Type": "HttpRequest",
-        "Id": "AlarmPost",
-        "Method": "POST",
-        "Url": "http://10.90.11.94:8448/api/Alarm",
-        "Format": "JSON",
-        "Data": "$AlarmPostData"
+        "Id": "TestGet",
+        "Method": "GET",
+        "Url": "http://localhost:5158/api/TestGet",
+        "Params": {
+          "request": "$request.name"
+        },
+        "Response": {
+          "type": "object",
+          "properties": {
+            "Header": {
+              "type": "string"
+            },
+            "response": {
+              "type": "string"
+            }
+          }
+        }
       },
       {
         "Type": "HttpRequest",
-        "Id": "AlarmRequestTotalCount",
-        "Method": "GET",
-        "Url": "http://10.90.11.94:8448/api/Alarm",
+        "Id": "TestPost",
+        "Method": "POST",
+        "Url": "http://localhost:5158/api/TestPost",
         "Headers": {
-          "Authorization": "$headers.Authorization"
+          "test-header": "$headers.User-Agent"
         },
-        "Params": {
-          "size": "0",
-          "root_object": "$request.ObjectIds",
-          "closed": "false",
-          "created_from": "$request.TimeRange.From",
-          "created_to": "$request.TimeRange.Till"
+        "Data": {
+          "request": "$request.name"
+        },
+        "Response": {
+          "type": "object",
+          "properties": {
+            "Header": {
+              "type": "string"
+            },
+            "response": {
+              "type": "string"
+            }
+          }
         }
       },
       {
@@ -68,13 +90,8 @@
         "Type": "Object",
         "Id": "variable",
         "Data": {
-          "Title": "$array.1.title",
-          "Type": "$array.1.Type",
-          "Icon": "$array.1.Icon",
-          "Action": "$array.1.Action",
-          "Action2": "$array.1",
-          "RequestName": "$Request.name",
-          "RequestName2": "$Request.Name"
+          "TestGet": "$TestGet",
+          "TestPost": "$TestPost"
         }
       }
     ]

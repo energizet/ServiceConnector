@@ -23,16 +23,12 @@ public class ExpressionGenerator
 
 	public LambdaExpression GetValue(string value, TypesStore types)
 	{
-		if (string.IsNullOrWhiteSpace(value))
+		if (string.IsNullOrWhiteSpace(value) || value[0] is not '$')
 		{
 			return GetConstant(value);
 		}
-
-		if (value[0] is not '$')
-		{
-			return GetConstant(value);
-		}
-
+		
+		// TODO interpolation ${}
 		return GetValue(value.AsSpan()[1..], types);
 	}
 
@@ -107,7 +103,7 @@ public class ExpressionGenerator
 			return CreateVariable(Expression.PropertyOrField(variable, $"Item_{name}"), $"Item_{name}");
 		}
 
-		if (type.TryTo(typeof(Dictionary<,>), out var map))
+		if (type.TryTo(typeof(IDictionary<,>), out var map))
 		{
 			var key = Expression.Constant(name);
 			if (map.GenericTypeArguments[0].TryTo(typeof(int), out _))
@@ -167,28 +163,12 @@ public class ExpressionGenerator
 	private ParameterExpression AssignVariable(ParameterExpression variable, Expression value)
 	{
 		_body.Add(Expression.Assign(variable, value));
-
-
 		_body.Add(Expression.IfThen(
 			Expression.Equal(
                 MakeNullable(variable), Expression.Constant(null)
 			),
 			CreateReturn()
 		));
-
-		return variable;
-	}
-
-	private static Expression MakeNullable(ParameterExpression variable)
-	{
-		if (
-			variable.Type.TryTo(typeof(ValueType), out _) &&
-			!variable.Type.TryTo(typeof(Nullable<>), out _)
-		)
-		{
-			var nullableType = typeof(Nullable<>).MakeGenericType(variable.Type);
-			return Expression.Convert(variable, nullableType);
-		}
 
 		return variable;
 	}
@@ -209,6 +189,20 @@ public class ExpressionGenerator
 		return ret;
 	}
 
+	private static Expression MakeNullable(ParameterExpression variable)
+	{
+		if (
+			variable.Type.TryTo(typeof(ValueType), out _) &&
+			!variable.Type.TryTo(typeof(Nullable<>), out _)
+		)
+		{
+			var nullableType = typeof(Nullable<>).MakeGenericType(variable.Type);
+			return Expression.Convert(variable, nullableType);
+		}
+
+		return variable;
+	}
+
 	private void FixReturns(Type type)
 	{
 		var prop = _returnLabel.GetType().GetFields(BindingFlags.Instance | BindingFlags.NonPublic)
@@ -221,5 +215,29 @@ public class ExpressionGenerator
 				.First(item => item.Name.Contains("Value"))
 				.SetValue(ret, Expression.Default(type));
 		}
+	}
+
+	private static int FindMatchingBracket(ReadOnlySpan<char> value, char openBracket = '{', char closeBracket = '}')
+	{
+		var depth = 0;
+		for (var i = 0; i < value.Length; i++)
+		{
+			if (value[i] == openBracket)
+			{
+				depth++;
+				continue;
+			}
+
+			if (value[i] == closeBracket)
+			{
+				depth--;
+				if (depth == 0)
+				{
+					return i;
+				}
+			}
+		}
+
+		return -1;
 	}
 }

@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using ProtoBuf.Grpc.Server;
 using ServiceConnector.Common;
+using ServiceConnector.Jobs;
 using ServiceConnector.Web.Configs;
 
 namespace ServiceConnector.Web.Registrars;
@@ -32,6 +34,8 @@ public static class RegistrarExtensions
 		services.AddHostedService<ServiceConnectorRegistrar>();
 		services.AddSingleton(controllers);
 		services.AddSingleton<GrpcRegistrar>();
+		services.AddSingleton<ExpressionGeneratorFactory>();
+		services.TryAddTransient<HttpClient>();
 
 		services.AddSingleton<IActionDescriptorChangeProvider>(DynamicActionDescriptorChangeProvider.Instance);
 

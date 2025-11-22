@@ -8,12 +8,7 @@ public class TypeFinder(ILinker linker)
 {
 	public Type ParseType(string value, TypesStore types)
 	{
-		if (string.IsNullOrWhiteSpace(value))
-		{
-			return typeof(string);
-		}
-
-		if (value[0] is not '$')
+		if (string.IsNullOrWhiteSpace(value) || value[0] is not '$' || value.StartsWith("${"))
 		{
 			return typeof(string);
 		}
@@ -79,7 +74,7 @@ public class TypeFinder(ILinker linker)
 			return outType != null;
 		}
 
-		if (type.TryTo(typeof(Dictionary<,>), out var map))
+		if (type.TryTo(typeof(IDictionary<,>), out var map))
 		{
 			if (type.GenericTypeArguments[0].TryTo(typeof(int), out _) && !int.TryParse(name, out _))
 			{
@@ -129,29 +124,5 @@ public class TypeFinder(ILinker linker)
 		}
 
 		return type;
-	}
-
-	private static int FindMatchingBracket(ReadOnlySpan<char> value, char openBracket = '{', char closeBracket = '}')
-	{
-		var depth = 0;
-		for (var i = 0; i < value.Length; i++)
-		{
-			if (value[i] == openBracket)
-			{
-				depth++;
-				continue;
-			}
-
-			if (value[i] == closeBracket)
-			{
-				depth--;
-				if (depth == 0)
-				{
-					return i;
-				}
-			}
-		}
-
-		return -1;
 	}
 }
