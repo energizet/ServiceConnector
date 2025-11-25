@@ -6,7 +6,12 @@ using ServiceConnector.TypeBuilder;
 
 namespace ServiceConnector.Jobs;
 
-public interface IArray : IEnumerable;
+public interface IArray : IEnumerable
+{
+	int Count();
+	object? Get(int index);
+	static abstract int StaticCount();
+}
 
 public class TypeBuilder(AssemblyBuilderFactory factory, TypeFinder finder, ExpressionGeneratorFactory generator)
 {
@@ -29,17 +34,49 @@ public class TypeBuilder(AssemblyBuilderFactory factory, TypeFinder finder, Expr
 
 				var elements = data.EnumerateArray().ToList();
 				var enumeratorBody = new List<string>(elements.Count + 1);
+				var getBody = new List<string>(elements.Count + 2)
+				{
+					"""
+					if (index < 0 || index >= Count())
+					{
+					    return null;
+					}
+
+					return index switch
+					{
+					"""
+				};
+
 				for (var i = 0; i < elements.Count; i++)
 				{
 					var type = BuildType(types, elements[i], $"{typeName}{i}");
-					builder.CreateProperty($"Item_{i}", type);
+					builder.CreateProperty($"Item_{i}", type, "public required");
 					enumeratorBody.Add($"yield return Item_{i};");
+					getBody.Add($"    {i} => Item_{i},");
 				}
 
-				enumeratorBody.Add("yield break;");
+				builder.CreateProperty("Item_Others", typeof(List<object>), "public required");
 
-				builder.CreateMethod(nameof(IEnumerable.GetEnumerator), typeof(IEnumerator), "",
+				enumeratorBody.Add("""
+				                   foreach (var other in Item_Others)
+				                   {
+				                       yield return other;
+				                   }
+				                   """);
+				getBody.Add("""
+				                _ => Item_Others[index - StaticCount()],
+				            };
+				            """);
+
+				builder.CreateMethod(nameof(IArray.GetEnumerator), typeof(IEnumerator), "",
 					string.Join("\n", enumeratorBody));
+
+				builder.CreateMethod(nameof(IArray.Count), typeof(int), "",
+					"return StaticCount() + Item_Others.Count;");
+				builder.CreateMethod(nameof(IArray.Get), typeof(object), "int index",
+					string.Join("\n", getBody));
+				builder.CreateMethod(nameof(IArray.StaticCount), typeof(int), "",
+					$"return {elements.Count};", "public static");
 
 				return builder.AssemblyBuilder.Build().First();
 			}
@@ -62,6 +99,12 @@ public class TypeBuilder(AssemblyBuilderFactory factory, TypeFinder finder, Expr
 				return builder.Build().First();
 			}
 		}
+	}
+
+	public Expression BuildObject(TypesStore types, string data, ParameterExpression store)
+	{
+		var lambda = generator.Create().GetValue(data, types);
+		return Expression.Invoke(lambda, store);
 	}
 
 	public Expression BuildObject(TypesStore types, JsonElement data, Type resultType, ParameterExpression store)
@@ -92,6 +135,11 @@ public class TypeBuilder(AssemblyBuilderFactory factory, TypeFinder finder, Expr
 						BuildObject(types, elements[i], propertyInfo.PropertyType, store)
 					));
 				}
+
+				memberBindings.Add(Expression.Bind(
+					resultType.GetProperty("Item_Others")!,
+					Expression.New(typeof(List<object>))
+				));
 
 				return Expression.MemberInit(Expression.New(resultType), memberBindings);
 			}

@@ -60,18 +60,13 @@
         }
       },
       {
-        "Type": "Mapping",
-        "Id": "result",
-        "List": "$array",
-        "Map": {
-          "Title": "$item.Title",
-          "TitleType": "{{$item.Title}}--{{$item.Type}}"
-        }
-      },
-      {
         "Type": "Object",
         "Id": "array",
         "Data": [
+          {
+            "TestGet": "$TestGet",
+            "TestPost": "$TestPost"
+          },
           {
             "Title": "Настройки",
             "Type": "link",
@@ -87,11 +82,19 @@
         ]
       },
       {
+        "Type": "Mapping",
+        "Id": "result",
+        "List": "$array",
+        "Map": {
+          "Title": "$item.Title",
+          "TitleType": "{{$item.Title}}--{{$item.Type}}"
+        }
+      },
+      {
         "Type": "Object",
         "Id": "variable",
         "Data": {
-          "TestGet": "$TestGet",
-          "TestPost": "$TestPost"
+          "array": "$array"
         }
       }
     ]

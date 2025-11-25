@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 using ServiceConnector.Common;
 using ServiceConnector.TypeBuilder;
 
@@ -70,8 +71,18 @@ public class TypeFinder(ILinker linker)
 	{
 		if (type.TryTo(typeof(IArray), out _))
 		{
-			outType = type.GetProperty($"Item_{name}")?.PropertyType;
-			return outType != null;
+			if (!int.TryParse(name, out var index) || index < 0)
+			{
+				outType = null;
+				return false;
+			}
+
+			var staticCount = type.GetMethod(nameof(IArray.StaticCount), BindingFlags.Public | BindingFlags.Static)!;
+			outType = index < (int)staticCount.Invoke(type, [])!
+				? type.GetProperty($"Item_{index}")!.PropertyType
+				: type.GetProperty("Item_Others")!.PropertyType.GenericTypeArguments[0];
+
+			return true;
 		}
 
 		if (type.TryTo(typeof(IDictionary<,>), out var map))

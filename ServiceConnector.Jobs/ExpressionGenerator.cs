@@ -16,8 +16,9 @@ public class ExpressionGeneratorFactory
 
 public class ExpressionGenerator
 {
-	private readonly List<ParameterExpression> _variables = [];
-	private readonly List<Expression> _body = [];
+	public List<ParameterExpression> Variables { get; } = [];
+	public List<Expression> Body { get; } = [];
+	private readonly List<ParameterExpression> _parameters = [];
 	private readonly LabelTarget _returnLabel = Expression.Label(typeof(object), "returnLabel");
 	private readonly List<GotoExpression> _returns = [];
 
@@ -27,29 +28,27 @@ public class ExpressionGenerator
 		{
 			return GetConstant(value);
 		}
-		
+
 		// TODO interpolation ${}
 		return GetValue(value.AsSpan()[1..], types);
 	}
 
 	private LambdaExpression GetConstant(string value)
 	{
-		var store = Expression.Parameter(typeof(PipelineStore), "store");
+		CreateParameter(typeof(PipelineStore), "store");
 
-		return Expression.Lambda(Expression.Constant(value), store);
+		var constant = CreateVariable(Expression.Constant(value), "constant");
+
+		return CreateLambda(constant);
 	}
 
 	private LambdaExpression GetValue(ReadOnlySpan<char> value, TypesStore types)
 	{
-		var store = Expression.Parameter(typeof(PipelineStore), "store");
+		var store = CreateParameter(typeof(PipelineStore), "store");
 
 		var result = MakeNullable(GetValue(value, types, store));
 
-		FixReturns(result.Type);
-		_body.Add(Expression.Label(_returnLabel, result));
-
-		var block = Expression.Block(_variables, _body);
-		return Expression.Lambda(block, store);
+		return CreateLambda(result);
 	}
 
 	private ParameterExpression GetValue(ReadOnlySpan<char> value, TypesStore types, Expression store)
@@ -100,7 +99,30 @@ public class ExpressionGenerator
 		var type = variable.Type;
 		if (type.TryTo(typeof(IArray), out _))
 		{
-			return CreateVariable(Expression.PropertyOrField(variable, $"Item_{name}"), $"Item_{name}");
+			var index = int.Parse(name);
+			var indexConst = Expression.Constant(index);
+
+			var count = CreateVariable(Expression.Call(variable, nameof(IArray.Count), null), "count");
+
+			Body.Add(Expression.IfThen(
+				Expression.IsFalse(Expression.AndAlso(
+					Expression.GreaterThanOrEqual(indexConst, Expression.Constant(0)),
+					Expression.LessThan(indexConst, count)
+				)),
+				CreateReturn()
+			));
+
+			var staticCount = type.GetMethod(nameof(IArray.StaticCount), BindingFlags.Public | BindingFlags.Static)!;
+			var staticCountValue = (int)staticCount.Invoke(type, [])!;
+			Expression value = index < staticCountValue
+				? Expression.PropertyOrField(variable, $"Item_{name}")
+				: Expression.Property(
+					Expression.PropertyOrField(variable, "Item_Others"),
+					"Item",
+					Expression.Subtract(indexConst, Expression.Constant(staticCountValue))
+				);
+
+			return CreateVariable(value, $"Item_{index}");
 		}
 
 		if (type.TryTo(typeof(IDictionary<,>), out var map))
@@ -113,7 +135,7 @@ public class ExpressionGenerator
 
 			var value = CreateVariable(map.GenericTypeArguments[1], "value");
 
-			_body.Add(Expression.IfThen(
+			Body.Add(Expression.IfThen(
 				Expression.IsFalse(Expression.Call(
 					variable, "TryGetValue", null, key, value
 				)),
@@ -129,7 +151,7 @@ public class ExpressionGenerator
 			var index = Expression.Constant(int.Parse(name));
 			var collection = Expression.Convert(variable, list.To(typeof(IReadOnlyCollection<>))!);
 			var count = CreateVariable(Expression.PropertyOrField(collection, nameof(ICollection.Count)), "count");
-			_body.Add(Expression.IfThen(
+			Body.Add(Expression.IfThen(
 				Expression.IsFalse(Expression.AndAlso(
 					Expression.GreaterThanOrEqual(index, Expression.Constant(0)),
 					Expression.LessThan(index, count)
@@ -155,41 +177,64 @@ public class ExpressionGenerator
 		return CreateVariable(Expression.PropertyOrField(variable, fields[name]), name);
 	}
 
-	private ParameterExpression CreateVariable(Expression value, string name)
+	public ParameterExpression CreateVariable(Expression value, string name)
 	{
 		return AssignVariable(CreateVariable(value.Type, name), value);
 	}
 
-	private ParameterExpression AssignVariable(ParameterExpression variable, Expression value)
+	public ParameterExpression AssignVariable(ParameterExpression variable, Expression value)
 	{
-		_body.Add(Expression.Assign(variable, value));
-		_body.Add(Expression.IfThen(
-			Expression.Equal(
-                MakeNullable(variable), Expression.Constant(null)
-			),
-			CreateReturn()
-		));
+		Body.Add(Expression.Assign(variable, value));
+		if (value is not ConstantExpression)
+		{
+			Body.Add(Expression.IfThen(
+				Expression.Equal(
+					MakeNullable(variable), Expression.Constant(null)
+				),
+				CreateReturn()
+			));
+		}
 
 		return variable;
 	}
 
-	private ParameterExpression CreateVariable(Type type, string name)
+	public ParameterExpression CreateVariable(Type type, string name)
 	{
 		var variable = Expression.Variable(type, name);
-		_variables.Add(variable);
+		Variables.Add(variable);
 
 		return variable;
 	}
 
-	private GotoExpression CreateReturn()
+	public BlockExpression CreateBlock()
 	{
-		var ret = Expression.Return(_returnLabel, Expression.Default(_returnLabel.Type));
-		_returns.Add(ret);
-
-		return ret;
+		return Expression.Block(Variables, Body);
 	}
 
-	private static Expression MakeNullable(ParameterExpression variable)
+	public LambdaExpression CreateLambda(Expression result)
+	{
+		FixReturns(result.Type);
+		Body.Add(Expression.Label(_returnLabel, result));
+
+		return Expression.Lambda(CreateBlock(), _parameters);
+	}
+
+	public Expression<T> CreateLambda<T>(Expression result)
+	{
+		FixReturns(result.Type);
+		Body.Add(Expression.Label(_returnLabel, result));
+
+		return Expression.Lambda<T>(CreateBlock(), _parameters);
+	}
+
+	public ParameterExpression CreateParameter(Type type, string name)
+	{
+		var store = Expression.Parameter(type, name);
+		_parameters.Add(store);
+		return store;
+	}
+
+	public static Expression MakeNullable(ParameterExpression variable)
 	{
 		if (
 			variable.Type.TryTo(typeof(ValueType), out _) &&
@@ -201,6 +246,14 @@ public class ExpressionGenerator
 		}
 
 		return variable;
+	}
+
+	private GotoExpression CreateReturn()
+	{
+		var ret = Expression.Return(_returnLabel, Expression.Default(_returnLabel.Type));
+		_returns.Add(ret);
+
+		return ret;
 	}
 
 	private void FixReturns(Type type)

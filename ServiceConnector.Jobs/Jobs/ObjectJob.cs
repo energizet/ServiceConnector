@@ -11,8 +11,11 @@ public class ObjectJobConfig : BaseJobConfig
 }
 
 [PipelineJob]
-public class ObjectJob(ObjectJobConfig config, ILogger<ObjectJob> logger)
-	: BaseJob<ObjectJobConfig, ObjectJobRunner>(config, isAsync: false)
+public class ObjectJob(
+	ObjectJobConfig config,
+	ExpressionGeneratorFactory generator,
+	ILogger<ObjectJob> logger
+) : BaseJob<ObjectJobConfig, ObjectJobRunner>(config, isAsync: false)
 {
 	private Type _resultType = typeof(object);
 	public Func<PipelineStore, object?> GetData = null!;
@@ -26,13 +29,14 @@ public class ObjectJob(ObjectJobConfig config, ILogger<ObjectJob> logger)
 
 	private Expression<Func<PipelineStore, object?>> BuildGetData(TypesStore types)
 	{
-		var store = Expression.Parameter(typeof(PipelineStore), "store");
+		var builder = generator.Create();
+		var store = builder.CreateParameter(typeof(PipelineStore), "store");
 
 		var block = TypeBuilder.BuildObject(types, Config.Data, _resultType, store);
 		block = Expression.Convert(block, typeof(object));
 
-		return Expression.Lambda<Func<PipelineStore, object?>>(block, store)
-			.Log($"{Definition.RequestId} {Id} {nameof(GetData)}", logger);
+		return builder.CreateLambda<Func<PipelineStore, object?>>(block)
+			.Log($"{Definition.RequestId}.{Id} {nameof(GetData)}", logger);
 	}
 }
 

@@ -20,7 +20,7 @@ public class HttpRequestJobConfig : BaseJobConfig
 	public MethodEnum Method { get; init; } = MethodEnum.Get;
 	public required string Url { get; init; }
 
-	public Dictionary<string, JsonElement> Headers { get; set; } = [];
+	public Dictionary<string, string> Headers { get; set; } = [];
 	public JsonElement? Params { get; set; }
 
 	public JsonElement? Data { get; set; }
@@ -77,25 +77,23 @@ public class HttpRequestJob(
 
 	private Expression<Func<PipelineStore, object?>> BuildGetUrl(TypesStore types)
 	{
-		var store = Expression.Parameter(typeof(PipelineStore), "store");
+		var builder = generator.Create();
 
-		var lambda = generator.Create().GetValue(Config.Url, types);
-		var call = Expression.Invoke(lambda, store);
+		var store = builder.CreateParameter(typeof(PipelineStore), "store");
 
-		return Expression.Lambda<Func<PipelineStore, object?>>(call, store)
+		var lambda = TypeBuilder.BuildObject(types, Config.Url, store);
+
+		return builder.CreateLambda<Func<PipelineStore, object?>>(lambda)
 			.Log($"{Definition.RequestId}.{Id} {nameof(GetUrl)}", logger);
 	}
 
 	private Expression<Func<PipelineStore, QueryList>> BuildGetQuery(TypesStore types)
 	{
-		var store = Expression.Parameter(typeof(PipelineStore), "store");
+		var builder = generator.Create();
 
-		var variables = new List<ParameterExpression>();
-		var body = new List<Expression>();
+		var store = builder.CreateParameter(typeof(PipelineStore), "store");
 
-		var queryList = Expression.Variable(typeof(QueryList), "queryList");
-
-		body.Add(Expression.Assign(queryList, Expression.New(queryList.Type)));
+		var queryList = builder.CreateVariable(Expression.New(typeof(QueryList)), "queryList");
 
 		if (Config.Params != null)
 		{
@@ -113,7 +111,7 @@ public class HttpRequestJob(
 						var value = TypeBuilder.BuildObject(types, item.Value, type, store);
 						var valueStr = Expression.Call(value, nameof(ToString), null);
 
-						body.Add(Expression.Call(queryList, nameof(QueryList.Add), null, name, valueStr));
+						builder.Body.Add(Expression.Call(queryList, nameof(QueryList.Add), null, name, valueStr));
 					}
 
 					break;
@@ -123,51 +121,37 @@ public class HttpRequestJob(
 			}
 		}
 
-		body.Add(queryList);
-
-		variables.Add(queryList);
-
-		var block = Expression.Block(variables, body);
-
-		return Expression.Lambda<Func<PipelineStore, QueryList>>(block, store)
+		return builder.CreateLambda<Func<PipelineStore, QueryList>>(queryList)
 			.Log($"{Definition.RequestId}.{Id} {nameof(GetUrl)}", logger);
 	}
 
 	private Expression<Func<PipelineStore, HeaderList>> BuildGetHeaders(TypesStore types)
 	{
-		var store = Expression.Parameter(typeof(PipelineStore), "store");
+		var builder = generator.Create();
 
-		var variables = new List<ParameterExpression>();
-		var body = new List<Expression>();
+		var store = builder.CreateParameter(typeof(PipelineStore), "store");
 
-		var headerList = Expression.Variable(typeof(HeaderList), "headerList");
-
-		body.Add(Expression.Assign(headerList, Expression.New(headerList.Type)));
+		var headerList = builder.CreateVariable(Expression.New(typeof(HeaderList)), "headerList");
 
 		foreach (var header in Config.Headers)
 		{
 			var name = Expression.Constant(header.Key);
 
-			var type = TypeBuilder.BuildType(types, header.Value, $"{Definition.RequestId}_{Id}_{header.Key}");
-			var value = TypeBuilder.BuildObject(types, header.Value, type, store);
+			var value = TypeBuilder.BuildObject(types, header.Value, store);
 			var valueStr = Expression.Call(value, nameof(ToString), null);
 
-			body.Add(Expression.Call(headerList, nameof(HeaderList.Add), null, name, valueStr));
+			builder.Body.Add(Expression.Call(headerList, nameof(HeaderList.Add), null, name, valueStr));
 		}
 
-		body.Add(headerList);
-
-		variables.Add(headerList);
-
-		var block = Expression.Block(variables, body);
-
-		return Expression.Lambda<Func<PipelineStore, HeaderList>>(block, store)
+		return builder.CreateLambda<Func<PipelineStore, HeaderList>>(headerList)
 			.Log($"{Definition.RequestId}.{Id} {nameof(GetHeaders)}", logger);
 	}
 
 	private Expression<Func<PipelineStore, object?>> BuildGetData(TypesStore types)
 	{
-		var store = Expression.Parameter(typeof(PipelineStore), "store");
+		var builder = generator.Create();
+
+		var store = builder.CreateParameter(typeof(PipelineStore), "store");
 
 		Expression value = Expression.Constant(null, typeof(object));
 
@@ -177,7 +161,7 @@ public class HttpRequestJob(
 			value = TypeBuilder.BuildObject(types, Config.Data.Value, type, store);
 		}
 
-		return Expression.Lambda<Func<PipelineStore, object?>>(value, store)
+		return builder.CreateLambda<Func<PipelineStore, object?>>(value)
 			.Log($"{Definition.RequestId}.{Id} {nameof(GetData)}", logger);
 	}
 }
