@@ -6,13 +6,6 @@ using ServiceConnector.TypeBuilder;
 
 namespace ServiceConnector.Jobs;
 
-public interface IArray : IEnumerable
-{
-	int Count();
-	object? Get(int index);
-	static abstract int StaticCount();
-}
-
 public class TypeBuilder(AssemblyBuilderFactory factory, TypeFinder finder, ExpressionGeneratorFactory generator)
 {
 	public Type BuildType(TypesStore types, JsonElement data, string typeName)
@@ -29,56 +22,10 @@ public class TypeBuilder(AssemblyBuilderFactory factory, TypeFinder finder, Expr
 				return typeof(object);
 			case JsonValueKind.Array:
 			{
-				var builder = factory.Create(typeName)
-					.CreateClass<object>([typeof(IArray)], typeName);
-
 				var elements = data.EnumerateArray().ToList();
-				var enumeratorBody = new List<string>(elements.Count + 1);
-				var getBody = new List<string>(elements.Count + 2)
-				{
-					"""
-					if (index < 0 || index >= Count())
-					{
-					    return null;
-					}
+				var newTypes = elements.Select((x, i) => BuildType(types, x, $"{typeName}{i}")).ToList();
 
-					return index switch
-					{
-					"""
-				};
-
-				for (var i = 0; i < elements.Count; i++)
-				{
-					var type = BuildType(types, elements[i], $"{typeName}{i}");
-					builder.CreateProperty($"Item_{i}", type, "public required");
-					enumeratorBody.Add($"yield return Item_{i};");
-					getBody.Add($"    {i} => Item_{i},");
-				}
-
-				builder.CreateProperty("Item_Others", typeof(List<object>), "public required");
-
-				enumeratorBody.Add("""
-				                   foreach (var other in Item_Others)
-				                   {
-				                       yield return other;
-				                   }
-				                   """);
-				getBody.Add("""
-				                _ => Item_Others[index - StaticCount()],
-				            };
-				            """);
-
-				builder.CreateMethod(nameof(IArray.GetEnumerator), typeof(IEnumerator), "",
-					string.Join("\n", enumeratorBody));
-
-				builder.CreateMethod(nameof(IArray.Count), typeof(int), "",
-					"return StaticCount() + Item_Others.Count;");
-				builder.CreateMethod(nameof(IArray.Get), typeof(object), "int index",
-					string.Join("\n", getBody));
-				builder.CreateMethod(nameof(IArray.StaticCount), typeof(int), "",
-					$"return {elements.Count};", "public static");
-
-				return builder.AssemblyBuilder.Build().First();
+				return BuildArray(typeName, newTypes);
 			}
 			case JsonValueKind.Object:
 			default:
@@ -101,18 +48,75 @@ public class TypeBuilder(AssemblyBuilderFactory factory, TypeFinder finder, Expr
 		}
 	}
 
-	public Expression BuildObject(TypesStore types, string data, ParameterExpression store)
+	public Type BuildArray(string name, List<Type> types, Type? otherType = null)
 	{
-		var lambda = generator.Create().GetValue(data, types);
+		var builder = factory.Create(name)
+			.CreateClass<object>([typeof(IArray)], name);
+
+		var enumeratorBody = new List<string>(types.Count + 1);
+		var getBody = new List<string>(types.Count + 2)
+		{
+			"""
+			if (index < 0 || index >= Count())
+			{
+			    return null;
+			}
+
+			return index switch
+			{
+			"""
+		};
+
+		for (var i = 0; i < types.Count; i++)
+		{
+			var type = types[i];
+			builder.CreateProperty($"Item_{i}", type, "public required");
+			enumeratorBody.Add($"yield return Item_{i};");
+			getBody.Add($"    {i} => Item_{i},");
+		}
+
+		var otherListType = otherType == null ? typeof(List<object>) : typeof(List<>).MakeGenericType(otherType);
+		builder.CreateProperty("Item_Others", otherListType, "public required");
+
+		enumeratorBody.Add("""
+		                   foreach (var other in (Item_Others ?? []))
+		                   {
+		                       yield return other;
+		                   }
+		                   """);
+		getBody.Add("""
+		                _ => (Item_Others ?? [])[index - StaticCount()],
+		            };
+		            """);
+
+		builder.CreateMethod(nameof(IArray.GetEnumerator), typeof(IEnumerator), "",
+			string.Join("\n", enumeratorBody));
+
+		builder.CreateMethod(nameof(IArray.Count), typeof(int), "",
+			"return StaticCount() + (Item_Others ?? []).Count;");
+		builder.CreateMethod(nameof(IArray.Get), typeof(object), "int index",
+			string.Join("\n", getBody));
+		builder.CreateMethod(nameof(IArray.IsOnlyStatic), typeof(bool), "",
+			$"return {(otherType == null ? "true" : "false")};", "public static");
+		builder.CreateMethod(nameof(IArray.StaticCount), typeof(int), "",
+			$"return {types.Count};", "public static");
+
+		return builder.AssemblyBuilder.Build().First();
+	}
+
+	public Expression BuildObject(TypesStore types, string data, ParameterExpression store, ILinker linker)
+	{
+		var lambda = generator.Create(linker).GetValue(data, types);
 		return Expression.Invoke(lambda, store);
 	}
 
-	public Expression BuildObject(TypesStore types, JsonElement data, Type resultType, ParameterExpression store)
+	public Expression BuildObject(TypesStore types, JsonElement data, Type resultType, ParameterExpression store,
+		ILinker linker)
 	{
 		switch (data.ValueKind)
 		{
 			case JsonValueKind.String:
-				var lambda = generator.Create().GetValue(data.GetString()!, types);
+				var lambda = generator.Create(linker).GetValue(data.GetString()!, types);
 				return Expression.Invoke(lambda, store);
 			case JsonValueKind.True:
 				return Expression.Constant(true);
@@ -132,7 +136,7 @@ public class TypeBuilder(AssemblyBuilderFactory factory, TypeFinder finder, Expr
 					var propertyInfo = resultType.GetProperty($"Item_{i}")!;
 					memberBindings.Add(Expression.Bind(
 						propertyInfo,
-						BuildObject(types, elements[i], propertyInfo.PropertyType, store)
+						BuildObject(types, elements[i], propertyInfo.PropertyType, store, linker)
 					));
 				}
 
@@ -153,7 +157,7 @@ public class TypeBuilder(AssemblyBuilderFactory factory, TypeFinder finder, Expr
 					var propertyInfo = resultType.GetProperty(child.Name)!;
 					memberBindings.Add(Expression.Bind(
 						propertyInfo,
-						BuildObject(types, child.Value, propertyInfo.PropertyType, store)
+						BuildObject(types, child.Value, propertyInfo.PropertyType, store, linker)
 					));
 				}
 

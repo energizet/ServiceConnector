@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using ServiceConnector.Common;
 using ServiceConnector.Jobs;
 
@@ -11,12 +12,18 @@ public partial class JobGraph(List<JobGraph.Node> firsts, JobGraph.Node? last) :
 		return runner.Run();
 	}
 
+	[DebuggerDisplay("Node = {DebuggerDisplay()}")]
 	public class Node
 	{
 		public HashSet<Node> From { get; } = [];
 		public HashSet<Node> To { get; } = [];
 		public required IJob Job { get; init; }
 		public bool IsAsync => Job.IsAsync;
+		
+		private string DebuggerDisplay()
+		{
+			return $"{Job.GetType().Name}({Job.Id})";
+		}
 	}
 
 	public class EdgeLinker(Builder builder, IJob to) : ILinker

@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Linq.Expressions;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -16,7 +17,9 @@ public class MappingJobConfig : BaseJobConfig
 [PipelineJob]
 public class MappingJob(
 	MappingJobConfig config,
+	TypeBuilder typeBuilder,
 	ExpressionGeneratorFactory generator,
+	PipelineDefinition definition,
 	ILogger<MappingJob> logger
 ) : BaseJob<MappingJobConfig, MappingJobRunner>(config, isAsync: false)
 {
@@ -24,111 +27,299 @@ public class MappingJob(
 
 	public override Task<Type> Compile(TypesStore types, CancellationToken cancellationToken)
 	{
-		GetData = BuildGetData(types).Compile();
-		return Task.FromResult(typeof(List<object>));
+		GetData = BuildGetData(types, out var returnType).Compile();
+		return Task.FromResult(returnType);
 	}
 
-	private Expression<Func<PipelineStore, object?>> BuildGetData(TypesStore types)
+	private Expression<Func<PipelineStore, object?>> BuildGetData(TypesStore types, out Type returnType)
+	{
+		var builder = generator.Create(Linker);
+		var store = builder.CreateParameter(typeof(PipelineStore), "store");
+
+		var lists = GetLists(types, store, builder).ToList();
+		var variables = GetVariablesList(lists).ToList();
+		var objects = GetObjectCreators(types, variables, store).ToList();
+
+		var arrayTypes = objects.Select(x => x.Type).ToList();
+		returnType = variables.All(x => x.IsOnlyStatic)
+			? typeBuilder.BuildArray($"{definition.RequestId}_{Id}", arrayTypes)
+			: typeBuilder.BuildArray($"{definition.RequestId}_{Id}", arrayTypes[..^1], arrayTypes[^1]);
+
+		var result = builder.CreateVariable(Expression.New(returnType), "result", checkNull: false);
+
+		var selector = CreateSelector(result, variables.Count, objects);
+
+		builder.Body.Add(CreateLoop(store, builder, lists, selector));
+
+		return builder.CreateLambda<Func<PipelineStore, object?>>(result)
+			.Log($"{definition.RequestId}.{Id} {nameof(GetData)}", logger);
+	}
+
+	private IEnumerable<ParameterExpression> GetLists(TypesStore types, ParameterExpression store,
+		ExpressionGenerator builder)
 	{
 		if (Config is { List: null, Lists: null } or { List: not null, Lists: not null })
 		{
-			throw new ArgumentException($"One of 'List' or 'Lists' required in {Definition.RequestId}.{Id}");
+			throw new ArgumentException($"One of 'List' or 'Lists' required in {definition.RequestId}.{Id}");
 		}
 
 		Config.Lists ??= [Config.List!];
 
-		var builder = generator.Create();
-		var store = builder.CreateParameter(typeof(PipelineStore), "store");
-
-		var lists = Config.Lists.Select(x => TypeBuilder.BuildObject(types, x, store)).ToList();
-		var variables = GetVariablesList(builder, lists);
-
-		for (var i = 0; i < variables.Count; i++)
+		for (var i = 0; i < Config.Lists.Count; i++)
 		{
-			var variable = variables[i];
-			if (variable.IsOneType)
-			{
-				types[$"item{i}"] = variable.Variables[0].Type;
-				continue;
-			}
+			var list = Config.Lists[i];
+			var obj = typeBuilder.BuildObject(types, list, store, Linker);
+			var variable = builder.CreateVariable(obj, $"list_{i}", checkNull: false);
+			builder.Body.Add(Expression.Condition(
+				Expression.NotEqual(variable, Expression.Constant(null)),
+				variable,
+				Expression.New(variable.Type)
+			));
+			yield return variable;
 		}
-
-		if (variables.All(x => !x.IsIArray))
-		{
-			types["item"] = variables[0].Variables[0].Type;
-
-			for (var i = 0; i < variables.Count; i++)
-			{
-				types[$"item{i}"] = variables[i].Variables[0].Type;
-			}
-
-			//var type = TypeBuilder.BuildType(types, Config.Map, $"{Definition.RequestId}_{Id}_{item.Name}");
-			//var value = TypeBuilder.BuildObject(types, Config.Map, type, store);
-		}
-
-		var result = builder.CreateVariable(Expression.Constant(new List<object>
-		{
-			"1"
-		}), "result");
-		return builder.CreateLambda<Func<PipelineStore, object?>>(result)
-			.Log($"{Definition.RequestId}.{Id} {nameof(GetData)}", logger);
 	}
 
-	private object SelectItem(PipelineStore store, int index, object? item0, object? item1)
+	private IEnumerable<ListVariables> GetVariablesList(List<ParameterExpression> lists)
 	{
-		store["index"] = index;
-		store["item"] = item0;
-		store["item0"] = item0;
-		store["item1"] = item1;
-
-		if (index == 0)
+		for (var i = 0; i < lists.Count; i++)
 		{
-		}
-
-		return null;
-	}
-
-	private List<ListVariables> GetVariablesList(ExpressionGenerator builder, List<Expression> lists)
-	{
-		return lists.Select((list, i) =>
-		{
+			var list = lists[i];
 			if (list.Type.TryTo(typeof(IArray), out _))
 			{
-				var props = list.Type.GetProperties()
-					.Where(x => x.Name.StartsWith("Item_"))
-					.OrderBy(x => int.Parse(x.Name["Item_".Length..]))
-					.Select((prop, j) => builder.CreateVariable(prop.PropertyType, $"item_{i}_{j}"))
-					.ToList();
+				var staticCount = IArray.StaticCount(list.Type);
+				var isOnlyStatic = IArray.IsOnlyStatic(list.Type);
 
-				return new ListVariables
+				var props = new List<Type>(staticCount + 1);
+				for (var j = 0; j < staticCount; j++)
 				{
-					IsIArray = true,
+					props.Add(list.Type.GetProperty($"Item_{j}")!.PropertyType);
+				}
+
+				var typeOther = list.Type.GetProperty("Item_Others")!.PropertyType.GenericTypeArguments[0];
+
+				yield return new()
+				{
 					Variables = props,
+					IsOnlyStatic = isOnlyStatic,
+					LastVariable = typeOther,
 				};
+				continue;
 			}
 
 			if (list.Type.TryTo(typeof(IEnumerable<>), out var enumerableType))
 			{
-				var variable = builder.CreateVariable(enumerableType.GenericTypeArguments[0], $"item_{i}");
-
-				return new()
+				yield return new()
 				{
-					IsIArray = false,
-					Variables = [variable],
+					IsOnlyStatic = false,
+					LastVariable = enumerableType.GenericTypeArguments[0],
 				};
+				continue;
 			}
 
-			throw new ArgumentException($"{Definition.RequestId}.{Id} must have 'List' or 'Lists' of array type");
-		}).ToList();
+			throw new ArgumentException($"{definition.RequestId}.{Id} must have 'List' or 'Lists' of array type");
+		}
+	}
+
+	private IEnumerable<Expression> GetObjectCreators(TypesStore types, List<ListVariables> listsVariables,
+		ParameterExpression store)
+	{
+		var variables = listsVariables.Select(x => x.GetEnumerator()).ToList();
+		variables.ForEach(x => x.MoveNext());
+
+		types["index"] = typeof(int);
+		for (var i = 0;; i++)
+		{
+			var variablesTypes = variables.Select(x => x.Current).ToList();
+
+			types["item"] = variablesTypes[0].Variable;
+			for (var j = 0; j < variablesTypes.Count; j++)
+			{
+				types[$"item{j}"] = variablesTypes[j].Variable;
+			}
+
+			var type = typeBuilder.BuildType(types, Config.Map, $"{definition.RequestId}_{Id}_{i}");
+			var value = typeBuilder.BuildObject(types, Config.Map, type, store, Linker);
+			yield return value;
+
+			if (variablesTypes.All(x => x.IsLast))
+			{
+				break;
+			}
+
+			variables.ForEach(x => x.MoveNext());
+		}
+	}
+
+	private LambdaExpression CreateSelector(ParameterExpression result, int variablesCount,
+		List<Expression> objects)
+	{
+		var builder = generator.Create(Linker);
+		var store = builder.CreateParameter(typeof(PipelineStore), "store");
+
+		var index = builder.CreateParameter(typeof(int), "index");
+		builder.Assign(
+			Expression.Property(store, "Item", Expression.Constant("index")),
+			Expression.Convert(index, typeof(object))
+		);
+
+		for (var i = 0; i < variablesCount; i++)
+		{
+			var item = builder.CreateParameter(typeof(object), $"item{i}");
+			if (i == 0)
+			{
+				builder.Assign(
+					Expression.Property(store, "Item", Expression.Constant("item")),
+					item
+				);
+			}
+
+			builder.Assign(
+				Expression.Property(store, "Item", Expression.Constant($"item{i}")),
+				item
+			);
+		}
+
+		Expression res = IArray.IsOnlyStatic(result.Type)
+			? Expression.Assign(
+				Expression.PropertyOrField(result, $"Item_{objects.Count - 1}"),
+				objects[^1]
+			)
+			: Expression.Call(
+				Expression.PropertyOrField(result, "Item_Others"),
+				nameof(IList.Add),
+				null,
+				objects[^1]
+			);
+		for (var i = objects.Count - 2; i >= 0; i--)
+		{
+			res = Expression.IfThenElse(
+				Expression.Equal(index, Expression.Constant(i)),
+				Expression.Assign(
+					Expression.PropertyOrField(result, $"Item_{i}"),
+					objects[i]
+				),
+				res
+			);
+		}
+
+		builder.Body.Add(res);
+
+		return builder.CreateLambda();
+	}
+
+	private Expression CreateLoop(ParameterExpression store, ExpressionGenerator builder,
+		List<ParameterExpression> lists, LambdaExpression selector)
+	{
+		var loopBuilder = generator.Create(Linker);
+
+		var enumerators = lists.Select((list, i) => builder.CreateVariable(
+			Expression.Call(
+				list,
+				list.Type.GetMethod(nameof(IEnumerable.GetEnumerator))!
+			),
+			$"enumerator_{i}",
+			checkNull: false
+		)).ToList();
+
+		var isMoveNext = enumerators.Aggregate((Expression)Expression.Constant(false), (sum, enumerator) =>
+			Expression.OrElse(sum, Expression.Call(
+				enumerator,
+				typeof(IEnumerator).GetMethod(nameof(IEnumerator.MoveNext))!
+			))
+		);
+
+		var index = builder.CreateVariable(Expression.Constant(0), "index");
+
+		var arguments = new List<ParameterExpression>
+		{
+			store,
+			index,
+		};
+		arguments.AddRange(enumerators.Select((enumerator, i) =>
+			loopBuilder.CreateVariable(
+				Expression.Property(enumerator, nameof(IEnumerator.Current)),
+				$"item_{i}",
+				checkNull: false
+			)
+		));
+
+		loopBuilder.Body.Add(Expression.Invoke(selector, arguments));
+
+		loopBuilder.Assign(index, Expression.Increment(index));
+
+		var breakLabel = Expression.Label("LoopBreak");
+		var loop = Expression.Loop(
+			Expression.IfThenElse(
+				Expression.IsTrue(isMoveNext),
+				loopBuilder.CreateBlock(),
+				Expression.Break(breakLabel)
+			),
+			breakLabel
+		);
+
+		var disposes = new List<MethodCallExpression>();
+
+		foreach (var enumerator in enumerators)
+		{
+			MethodCallExpression? disponse;
+			try
+			{
+				disponse = Expression.Call(enumerator, typeof(IDisposable).GetMethod(nameof(IDisposable.Dispose))!);
+			}
+			catch
+			{
+				disponse = null;
+			}
+
+			if (disponse != null)
+			{
+				disposes.Add(disponse);
+			}
+		}
+
+		return disposes.Count == 0
+			? loop
+			: Expression.TryFinally(
+				loop,
+				Expression.Block(disposes)
+			);
 	}
 }
 
-public class ListVariables
+public class ListVariables : IEnumerable<(bool IsLast, Type Variable)>
 {
-	public required bool IsIArray { get; set; }
-	public required List<ParameterExpression> Variables { get; set; }
+	public List<Type> Variables { get; init; } = [];
+	public required bool IsOnlyStatic { get; init; }
+	public required Type LastVariable { get; init; }
 
-	public bool IsOneType => !IsIArray;
+	public IEnumerator<(bool IsLast, Type Variable)> GetEnumerator()
+	{
+		for (var i = 0; i < Variables.Count; i++)
+		{
+			var variable = Variables[i];
+			yield return (IsLast(i), variable);
+		}
+
+		if (!IsOnlyStatic)
+		{
+			yield return (true, LastVariable);
+		}
+	}
+
+	private bool IsLast(int index)
+	{
+		if (!IsOnlyStatic)
+		{
+			return false;
+		}
+
+		return index == Variables.Count - 1;
+	}
+
+	IEnumerator IEnumerable.GetEnumerator()
+	{
+		return GetEnumerator();
+	}
 }
 
 public class MappingJobRunner(MappingJob job, PipelineStore store) : IRunner

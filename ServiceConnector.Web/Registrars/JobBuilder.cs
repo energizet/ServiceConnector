@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -19,7 +20,7 @@ public class JobBuilder(IServiceProvider provider)
 		.Where(x => x.GetCustomAttributes<PipelineJobAttribute>(inherit: false).Any())
 		.ToDictionary(x => x.Name.Replace("Job", ""), x => x);
 
-	public IJob Create(string requestId, JsonElement element)
+	public IJob Create(string requestId, JsonElement element, params object[] parameters)
 	{
 		var properties = new Dictionary<string, JsonProperty>(
 			element.EnumerateObject().ToDictionary(item => item.Name),
@@ -39,7 +40,7 @@ public class JobBuilder(IServiceProvider provider)
 		CheckType($"{requestId}.{id}", element, configType);
 		var config = DeserializeConfig(configType, element);
 
-		return (IJob)ActivatorUtilities.CreateInstance(provider, type, config);
+		return (IJob)CreateInstance(provider, type, [config, ..parameters]);
 	}
 
 	private static string GetString(Dictionary<string, JsonProperty> properties, string key)
@@ -120,5 +121,41 @@ public class JobBuilder(IServiceProvider provider)
 
 			CheckType($"{name}.{property.Name}", property.Value, fieldInfo.PropertyType);
 		}
+	}
+
+
+	private static LambdaExpression CreateFactory(Type type, params object[] arguments)
+	{
+		var types = type
+			.GetConstructors()
+			.Single()
+			.GetParameters()
+			.Select(x => x.ParameterType)
+			.ToHashSet();
+
+		var parameters = new List<ParameterExpression>();
+		var expressions = new List<Expression>();
+
+		for (var i = 0; i < arguments.Length; i++)
+		{
+			var argument = arguments[i].GetType();
+			var param = Expression.Parameter(argument, $"argument_{i}");
+			parameters.Add(param);
+			if (types.Any(x => x.TryTo(argument, out _)))
+			{
+				expressions.Add(Expression.Convert(param, typeof(object)));
+			}
+		}
+
+		var newArray = Expression.NewArrayInit(typeof(object), expressions);
+
+		return Expression.Lambda(newArray, parameters);
+	}
+
+	private static object CreateInstance(IServiceProvider provider, Type type, params object[] arguments)
+	{
+		var factory = CreateFactory(type, arguments).Compile();
+
+		return ActivatorUtilities.CreateInstance(provider, type, factory.DynamicInvoke(arguments) as object[] ?? []);
 	}
 }

@@ -8,7 +8,7 @@ namespace ServiceConnector.Tests;
 public class TypeParserTests
 {
 	private readonly ExpressionGeneratorFactory _generatorFactory = new();
-	private readonly TypeFinder _typeFinder = new(new LinkerTest());
+	private readonly TypeFinder _typeFinder = new();
 
 	private static readonly TypesStore Types = new()
 	{
@@ -72,7 +72,7 @@ public class TypeParserTests
 		Assert.Equal(expectedType, _typeFinder.ParseType(path, Types));
 
 		var store = Expression.Parameter(typeof(PipelineStore), "store");
-		var lambda = _generatorFactory.Create().GetValue(path, Types);
+		var lambda = _generatorFactory.Create(new LinkerTest()).GetValue(path, Types);
 		var invoke = Expression.Invoke(lambda, store);
 		var func = Expression.Lambda<Func<PipelineStore, object?>>(Expression.Convert(invoke, typeof(object)), store)
 			.Compile();
@@ -134,14 +134,14 @@ public class TypeParserTests
 
 	private class TestArray : IArray
 	{
-		public required int Item_0 { get; set; }
-		public required string Item_1 { get; set; }
-		public required TestObject Item_2 { get; set; }
-		public required List<TestObject> Item_Others { get; set; }
+		public required int? Item_0 { get; set; }
+		public required string? Item_1 { get; set; }
+		public required TestObject? Item_2 { get; set; }
+		public required List<TestObject>? Item_Others { get; set; }
 
 		public int Count()
 		{
-			return StaticCount() + Item_Others.Count;
+			return StaticCount() + (Item_Others ?? []).Count;
 		}
 
 		public object? Get(int index)
@@ -156,8 +156,13 @@ public class TypeParserTests
 				0 => Item_0,
 				1 => Item_1,
 				2 => Item_2,
-				_ => Item_Others[index - StaticCount()],
+				_ => (Item_Others ?? [])[index - StaticCount()],
 			};
+		}
+
+		public static bool IsOnlyStatic()
+		{
+			return false;
 		}
 
 		public static int StaticCount()
@@ -170,7 +175,7 @@ public class TypeParserTests
 			yield return Item_0;
 			yield return Item_1;
 			yield return Item_2;
-			foreach (var other in Item_Others)
+			foreach (var other in Item_Others ?? [])
 			{
 				yield return other;
 			}

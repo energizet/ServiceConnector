@@ -1,11 +1,10 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Reflection;
 using ServiceConnector.Common;
 using ServiceConnector.TypeBuilder;
 
 namespace ServiceConnector.Jobs;
 
-public class TypeFinder(ILinker linker)
+public class TypeFinder
 {
 	public Type ParseType(string value, TypesStore types)
 	{
@@ -30,8 +29,6 @@ public class TypeFinder(ILinker linker)
 		{
 			throw new ArgumentException($"Type {variableName} doesn't exist");
 		}
-
-		linker.Link(variableName);
 
 		for (var i = separator + 1; i < value.Length; i++)
 		{
@@ -77,8 +74,7 @@ public class TypeFinder(ILinker linker)
 				return false;
 			}
 
-			var staticCount = type.GetMethod(nameof(IArray.StaticCount), BindingFlags.Public | BindingFlags.Static)!;
-			outType = index < (int)staticCount.Invoke(type, [])!
+			outType = index < IArray.StaticCount(type)
 				? type.GetProperty($"Item_{index}")!.PropertyType
 				: type.GetProperty("Item_Others")!.PropertyType.GenericTypeArguments[0];
 

@@ -8,13 +8,13 @@ namespace ServiceConnector.Jobs;
 
 public class ExpressionGeneratorFactory
 {
-	public ExpressionGenerator Create()
+	public ExpressionGenerator Create(ILinker linker)
 	{
-		return new();
+		return new(linker);
 	}
 }
 
-public class ExpressionGenerator
+public class ExpressionGenerator(ILinker linker)
 {
 	public List<ParameterExpression> Variables { get; } = [];
 	public List<Expression> Body { get; } = [];
@@ -65,6 +65,8 @@ public class ExpressionGenerator
 		var expression = Expression.Call(store, "Get", [type], Expression.Constant(variableName));
 		var variable = CreateVariable(expression, variableName);
 
+		linker.Link(variableName);
+
 		for (var i = separator + 1; i < value.Length; i++)
 		{
 			var c = value[i];
@@ -112,14 +114,13 @@ public class ExpressionGenerator
 				CreateReturn()
 			));
 
-			var staticCount = type.GetMethod(nameof(IArray.StaticCount), BindingFlags.Public | BindingFlags.Static)!;
-			var staticCountValue = (int)staticCount.Invoke(type, [])!;
-			Expression value = index < staticCountValue
+			var staticCount = IArray.StaticCount(type);
+			Expression value = index < staticCount
 				? Expression.PropertyOrField(variable, $"Item_{name}")
 				: Expression.Property(
 					Expression.PropertyOrField(variable, "Item_Others"),
 					"Item",
-					Expression.Subtract(indexConst, Expression.Constant(staticCountValue))
+					Expression.Subtract(indexConst, Expression.Constant(staticCount))
 				);
 
 			return CreateVariable(value, $"Item_{index}");
@@ -177,15 +178,25 @@ public class ExpressionGenerator
 		return CreateVariable(Expression.PropertyOrField(variable, fields[name]), name);
 	}
 
-	public ParameterExpression CreateVariable(Expression value, string name)
+	public ParameterExpression CreateVariable(Expression value, string name, bool checkNull = true)
 	{
-		return AssignVariable(CreateVariable(value.Type, name), value);
+		return AssignVariable(CreateVariable(value.Type, name), value,checkNull);
 	}
 
-	public ParameterExpression AssignVariable(ParameterExpression variable, Expression value)
+	public void Assign(Expression left, Expression right)
 	{
-		Body.Add(Expression.Assign(variable, value));
-		if (value is not ConstantExpression)
+		Body.Add(Expression.Assign(left, right));
+	}
+
+	public ParameterExpression AssignVariable(ParameterExpression variable, Expression value, bool checkNull = true)
+	{
+		Assign(variable, value);
+		if (value is ConstantExpression)
+		{
+			return variable;
+		}
+
+		if (checkNull)
 		{
 			Body.Add(Expression.IfThen(
 				Expression.Equal(
@@ -211,18 +222,24 @@ public class ExpressionGenerator
 		return Expression.Block(Variables, Body);
 	}
 
-	public LambdaExpression CreateLambda(Expression result)
+	public LambdaExpression CreateLambda(Expression? result = null)
 	{
-		FixReturns(result.Type);
-		Body.Add(Expression.Label(_returnLabel, result));
+		if (result != null)
+		{
+			FixReturns(result.Type);
+			Body.Add(Expression.Label(_returnLabel, result));
+		}
 
 		return Expression.Lambda(CreateBlock(), _parameters);
 	}
 
-	public Expression<T> CreateLambda<T>(Expression result)
+	public Expression<T> CreateLambda<T>(Expression? result = null)
 	{
-		FixReturns(result.Type);
-		Body.Add(Expression.Label(_returnLabel, result));
+		if (result != null)
+		{
+			FixReturns(result.Type);
+			Body.Add(Expression.Label(_returnLabel, result));
+		}
 
 		return Expression.Lambda<T>(CreateBlock(), _parameters);
 	}

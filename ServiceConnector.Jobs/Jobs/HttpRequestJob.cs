@@ -30,8 +30,11 @@ public class HttpRequestJobConfig : BaseJobConfig
 [PipelineJob]
 public class HttpRequestJob(
 	HttpRequestJobConfig config,
-	ILogger<HttpRequestJob> logger,
-	ExpressionGeneratorFactory generator
+	TypeBuilder typeBuilder,
+	TypeBuilderFromSchema typeBuilderFromSchema,
+	ExpressionGeneratorFactory generator,
+	PipelineDefinition definition,
+	ILogger<HttpRequestJob> logger
 ) : BaseJob<HttpRequestJobConfig, HttpRequestJobRunner>(config, isAsync: true)
 {
 	public Func<PipelineStore, object?> GetUrl { get; private set; } = null!;
@@ -66,30 +69,30 @@ public class HttpRequestJob(
 			HttpRequestJobConfig.MethodEnum.Delete => HttpMethod.Delete,
 			HttpRequestJobConfig.MethodEnum.Patch => HttpMethod.Patch,
 			_ => throw new ArgumentOutOfRangeException(nameof(Config.Method), Config.Method,
-				$"{Definition.RequestId}.{Id}.Method unknown")
+				$"{definition.RequestId}.{Id}.Method unknown")
 		};
 	}
 
 	private Type BuildResponseType()
 	{
-		return TypeBuilderFromSchema.BuildType(Config.Response, $"{Definition.RequestId}_{Id}");
+		return typeBuilderFromSchema.BuildType(Config.Response, $"{definition.RequestId}_{Id}");
 	}
 
 	private Expression<Func<PipelineStore, object?>> BuildGetUrl(TypesStore types)
 	{
-		var builder = generator.Create();
+		var builder = generator.Create(Linker);
 
 		var store = builder.CreateParameter(typeof(PipelineStore), "store");
 
-		var lambda = TypeBuilder.BuildObject(types, Config.Url, store);
+		var lambda = typeBuilder.BuildObject(types, Config.Url, store, Linker);
 
 		return builder.CreateLambda<Func<PipelineStore, object?>>(lambda)
-			.Log($"{Definition.RequestId}.{Id} {nameof(GetUrl)}", logger);
+			.Log($"{definition.RequestId}.{Id} {nameof(GetUrl)}", logger);
 	}
 
 	private Expression<Func<PipelineStore, QueryList>> BuildGetQuery(TypesStore types)
 	{
-		var builder = generator.Create();
+		var builder = generator.Create(Linker);
 
 		var store = builder.CreateParameter(typeof(PipelineStore), "store");
 
@@ -107,8 +110,8 @@ public class HttpRequestJob(
 					{
 						var name = Expression.Constant(item.Name);
 
-						var type = TypeBuilder.BuildType(types, item.Value, $"{Definition.RequestId}_{Id}_{item.Name}");
-						var value = TypeBuilder.BuildObject(types, item.Value, type, store);
+						var type = typeBuilder.BuildType(types, item.Value, $"{definition.RequestId}_{Id}_{item.Name}");
+						var value = typeBuilder.BuildObject(types, item.Value, type, store, Linker);
 						var valueStr = Expression.Call(value, nameof(ToString), null);
 
 						builder.Body.Add(Expression.Call(queryList, nameof(QueryList.Add), null, name, valueStr));
@@ -117,17 +120,17 @@ public class HttpRequestJob(
 					break;
 				default:
 					throw new ArgumentOutOfRangeException(nameof(Config.Params), Config.Params?.ValueKind,
-						$"{Definition.RequestId}.{Id}.Params unsupported type");
+						$"{definition.RequestId}.{Id}.Params unsupported type");
 			}
 		}
 
 		return builder.CreateLambda<Func<PipelineStore, QueryList>>(queryList)
-			.Log($"{Definition.RequestId}.{Id} {nameof(GetUrl)}", logger);
+			.Log($"{definition.RequestId}.{Id} {nameof(GetUrl)}", logger);
 	}
 
 	private Expression<Func<PipelineStore, HeaderList>> BuildGetHeaders(TypesStore types)
 	{
-		var builder = generator.Create();
+		var builder = generator.Create(Linker);
 
 		var store = builder.CreateParameter(typeof(PipelineStore), "store");
 
@@ -137,19 +140,19 @@ public class HttpRequestJob(
 		{
 			var name = Expression.Constant(header.Key);
 
-			var value = TypeBuilder.BuildObject(types, header.Value, store);
+			var value = typeBuilder.BuildObject(types, header.Value, store, Linker);
 			var valueStr = Expression.Call(value, nameof(ToString), null);
 
 			builder.Body.Add(Expression.Call(headerList, nameof(HeaderList.Add), null, name, valueStr));
 		}
 
 		return builder.CreateLambda<Func<PipelineStore, HeaderList>>(headerList)
-			.Log($"{Definition.RequestId}.{Id} {nameof(GetHeaders)}", logger);
+			.Log($"{definition.RequestId}.{Id} {nameof(GetHeaders)}", logger);
 	}
 
 	private Expression<Func<PipelineStore, object?>> BuildGetData(TypesStore types)
 	{
-		var builder = generator.Create();
+		var builder = generator.Create(Linker);
 
 		var store = builder.CreateParameter(typeof(PipelineStore), "store");
 
@@ -157,12 +160,12 @@ public class HttpRequestJob(
 
 		if (Config.Data != null)
 		{
-			var type = TypeBuilder.BuildType(types, Config.Data.Value, $"{Definition.RequestId}_{Id}_data");
-			value = TypeBuilder.BuildObject(types, Config.Data.Value, type, store);
+			var type = typeBuilder.BuildType(types, Config.Data.Value, $"{definition.RequestId}_{Id}_data");
+			value = typeBuilder.BuildObject(types, Config.Data.Value, type, store, Linker);
 		}
 
 		return builder.CreateLambda<Func<PipelineStore, object?>>(value)
-			.Log($"{Definition.RequestId}.{Id} {nameof(GetData)}", logger);
+			.Log($"{definition.RequestId}.{Id} {nameof(GetData)}", logger);
 	}
 }
 

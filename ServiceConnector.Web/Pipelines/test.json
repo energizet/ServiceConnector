@@ -9,6 +9,23 @@
         },
         "name": {
           "type": "string"
+        },
+        "array": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "Title": {
+                "type": "string"
+              },
+              "TitleType": {
+                "type": "string"
+              },
+              "Type": {
+                "type": "string"
+              }
+            }
+          }
         }
       },
       "required": [
@@ -64,6 +81,7 @@
         "Id": "array",
         "Data": [
           {
+            "Title": "Test",
             "TestGet": "$TestGet",
             "TestPost": "$TestPost"
           },
@@ -84,9 +102,14 @@
       {
         "Type": "Mapping",
         "Id": "result",
-        "List": "$array",
+        "Lists": [
+          "$array",
+          "$request.array"
+        ],
         "Map": {
           "Title": "$item.Title",
+          "Title0": "$item0.Title",
+          "Title1": "$item1.Title",
           "TitleType": "{{$item.Title}}--{{$item.Type}}"
         }
       },
@@ -94,7 +117,8 @@
         "Type": "Object",
         "Id": "variable",
         "Data": {
-          "array": "$array"
+          "array": "$array",
+          "result": "$result"
         }
       }
     ]

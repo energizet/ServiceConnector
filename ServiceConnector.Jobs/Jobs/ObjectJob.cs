@@ -13,7 +13,9 @@ public class ObjectJobConfig : BaseJobConfig
 [PipelineJob]
 public class ObjectJob(
 	ObjectJobConfig config,
+	TypeBuilder typeBuilder,
 	ExpressionGeneratorFactory generator,
+	PipelineDefinition definition,
 	ILogger<ObjectJob> logger
 ) : BaseJob<ObjectJobConfig, ObjectJobRunner>(config, isAsync: false)
 {
@@ -22,21 +24,21 @@ public class ObjectJob(
 
 	public override Task<Type> Compile(TypesStore types, CancellationToken cancellationToken)
 	{
-		_resultType = TypeBuilder.BuildType(types, Config.Data, $"{Definition.RequestId}{Id}Type");
-		GetData = BuildGetData(types).Compile();
+		GetData = BuildGetData(types, out _resultType).Compile();
 		return Task.FromResult(_resultType);
 	}
 
-	private Expression<Func<PipelineStore, object?>> BuildGetData(TypesStore types)
+	private Expression<Func<PipelineStore, object?>> BuildGetData(TypesStore types, out Type resultType)
 	{
-		var builder = generator.Create();
+		var builder = generator.Create(Linker);
 		var store = builder.CreateParameter(typeof(PipelineStore), "store");
 
-		var block = TypeBuilder.BuildObject(types, Config.Data, _resultType, store);
+		resultType = typeBuilder.BuildType(types, Config.Data, $"{definition.RequestId}{Id}Type");
+		var block = typeBuilder.BuildObject(types, Config.Data, resultType, store, Linker);
 		block = Expression.Convert(block, typeof(object));
 
 		return builder.CreateLambda<Func<PipelineStore, object?>>(block)
-			.Log($"{Definition.RequestId}.{Id} {nameof(GetData)}", logger);
+			.Log($"{definition.RequestId}.{Id} {nameof(GetData)}", logger);
 	}
 }
 

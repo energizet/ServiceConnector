@@ -9,7 +9,7 @@ public abstract class Store<T>(Store<T>? parentStore = null)
 
 	public void Set(string key, T value)
 	{
-		_store[key.ToLower()] = value;
+		_store[key] = value;
 	}
 
 	public T Get(string key)

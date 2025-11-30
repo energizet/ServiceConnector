@@ -94,20 +94,16 @@ public class ServiceConnectorRegistrar(
 		var resultType = typeof(object);
 		foreach (var element in definition.Pipeline)
 		{
-			var job = jobBuilder.Create(definition.RequestId, element);
-
-			var linker = graphBuilder.AddNode(job);
-			var finder = ActivatorUtilities.CreateInstance<TypeFinder>(provider, linker);
-			var builder = ActivatorUtilities.CreateInstance<Jobs.TypeBuilder>(provider, factory, finder);
+			var builder = ActivatorUtilities.CreateInstance<Jobs.TypeBuilder>(provider, factory);
 			var builderFromSchema = ActivatorUtilities.CreateInstance<TypeBuilderFromSchema>(provider, factory);
 
-			job.Definition = definition;
-			job.TypeBuilder = builder;
-			job.TypeBuilderFromSchema = builderFromSchema;
+			var job = jobBuilder.Create(definition.RequestId, element, definition, builder, builderFromSchema);
+
+			job.Linker = graphBuilder.AddNode(job);
 
 			try
 			{
-				types[job.Id] = resultType = await job.Compile(types, cancellationToken);
+				types[job.Id] = resultType = await job.Compile(new(types), cancellationToken);
 			}
 			catch (Exception ex)
 			{

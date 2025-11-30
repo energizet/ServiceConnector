@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using ServiceConnector.Common;
 using ServiceConnector.Jobs.Expressions;
@@ -13,6 +14,7 @@ public abstract class BaseJobConfig
 /// if true - run like Runner.Run()
 /// if false - run like Task.Run(() => Runner.Run())
 /// </param>
+[DebuggerDisplay("{DebuggerDisplay()}")]
 public abstract class BaseJob<T, TRunner>(T config, bool isAsync) : IJob
 	where T : BaseJobConfig
 	where TRunner : IRunner
@@ -20,10 +22,13 @@ public abstract class BaseJob<T, TRunner>(T config, bool isAsync) : IJob
 	public T Config => config;
 	public string Id => Config.Id;
 	public bool IsAsync => isAsync;
-	public PipelineDefinition Definition { get; set; } = null!;
-	public TypeBuilder TypeBuilder { get; set; } = null!;
-	public TypeBuilderFromSchema TypeBuilderFromSchema { get; set; } = null!;
+	public ILinker Linker { get; set; }
 	public abstract Task<Type> Compile(TypesStore types, CancellationToken cancellationToken);
+
+	private string DebuggerDisplay()
+	{
+		return $"{GetType().Name}({Id})";
+	}
 
 	private Func<IJob, PipelineStore, object[]> Factory { get; } = typeof(TRunner).CreateFactory().Compile();
 
@@ -37,9 +42,7 @@ public interface IJob
 {
 	string Id { get; }
 	public bool IsAsync { get; }
-	PipelineDefinition Definition { set; }
-	TypeBuilder TypeBuilder { set; }
-	TypeBuilderFromSchema TypeBuilderFromSchema { set; }
+	ILinker Linker { set; }
 	Task<Type> Compile(TypesStore types, CancellationToken cancellationToken);
 	IRunner CreateRunner(IServiceProvider provider, PipelineStore store);
 }

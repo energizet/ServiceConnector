@@ -35,6 +35,7 @@ public static class RegistrarExtensions
 		services.AddSingleton(controllers);
 		services.AddSingleton<GrpcRegistrar>();
 		services.AddSingleton<ExpressionGeneratorFactory>();
+		services.AddSingleton<TypeFinder>();
 		services.TryAddTransient<HttpClient>();
 
 		services.AddSingleton<IActionDescriptorChangeProvider>(DynamicActionDescriptorChangeProvider.Instance);
