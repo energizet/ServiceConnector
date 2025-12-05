@@ -179,17 +179,32 @@ public class MappingJob(
 			);
 		}
 
+		var getOtherBuilder = generator.Create(Linker);
+		var others = getOtherBuilder.CreateVariable(Expression.PropertyOrField(result, "Item_Others"), "others",
+			checkNull: false);
+		getOtherBuilder.Body.Add(Expression.IfThen(
+			Expression.Equal(others, Expression.Constant(null)),
+			Expression.Assign(
+				Expression.PropertyOrField(result, "Item_Others"),
+				Expression.Assign(
+					others,
+					Expression.New(others.Type)
+				)
+			)
+		));
+		getOtherBuilder.Body.Add(Expression.Call(
+			others,
+			nameof(IList.Add),
+			null,
+			objects[^1]
+		));
+
 		Expression res = IArray.IsOnlyStatic(result.Type)
 			? Expression.Assign(
 				Expression.PropertyOrField(result, $"Item_{objects.Count - 1}"),
 				objects[^1]
 			)
-			: Expression.Call(
-				Expression.PropertyOrField(result, "Item_Others"),
-				nameof(IList.Add),
-				null,
-				objects[^1]
-			);
+			: getOtherBuilder.CreateBlock();
 		for (var i = objects.Count - 2; i >= 0; i--)
 		{
 			res = Expression.IfThenElse(
@@ -221,31 +236,44 @@ public class MappingJob(
 			checkNull: false
 		)).ToList();
 
-		var isMoveNext = enumerators.Aggregate((Expression)Expression.Constant(false), (sum, enumerator) =>
-			Expression.OrElse(sum, Expression.Call(
-				enumerator,
-				typeof(IEnumerator).GetMethod(nameof(IEnumerator.MoveNext))!
-			))
-		);
-
 		var index = builder.CreateVariable(Expression.Constant(0), "index");
 
+		var moveNextBuilder = generator.Create(Linker);
+		Expression isMoveNext = Expression.Constant(false);
 		var arguments = new List<ParameterExpression>
 		{
 			store,
 			index,
 		};
-		arguments.AddRange(enumerators.Select((enumerator, i) =>
-			loopBuilder.CreateVariable(
-				Expression.Property(enumerator, nameof(IEnumerator.Current)),
+		for (var i = 0; i < enumerators.Count; i++)
+		{
+			var enumerator = enumerators[i];
+			var isMoveNextVariable = builder.CreateVariable(typeof(bool), $"isMoveNext_{i}");
+			var current = loopBuilder.CreateVariable(
+				Expression.Condition(
+					isMoveNextVariable,
+					Expression.Convert(Expression.Property(enumerator, nameof(IEnumerator.Current)), typeof(object)),
+					Expression.Constant(null)
+				),
 				$"item_{i}",
 				checkNull: false
-			)
-		));
+			);
+
+			moveNextBuilder.AssignVariable(isMoveNextVariable, Expression.Call(
+				enumerator,
+				typeof(IEnumerator).GetMethod(nameof(IEnumerator.MoveNext))!
+			), checkNull: false);
+			isMoveNext = Expression.OrElse(isMoveNext, isMoveNextVariable);
+			arguments.Add(current);
+		}
+
+		var moveNextBlock = moveNextBuilder.CreateBlock();
+
+		builder.Body.Add(moveNextBlock);
 
 		loopBuilder.Body.Add(Expression.Invoke(selector, arguments));
-
 		loopBuilder.Assign(index, Expression.Increment(index));
+		loopBuilder.Body.Add(moveNextBlock);
 
 		var breakLabel = Expression.Label("LoopBreak");
 		var loop = Expression.Loop(

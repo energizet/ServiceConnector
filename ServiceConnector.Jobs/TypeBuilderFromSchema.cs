@@ -39,7 +39,7 @@ public class TypeBuilderFromSchema(AssemblyBuilderFactory factory)
 					throw new ArgumentException($"Array schema must contain 'items' ({name})");
 				}
 
-				var type = BuildType(itemsProp, name + "_" + itemsProp);
+				var type = BuildType(itemsProp, name + "Item");
 				return typeof(List<>).MakeGenericType(type);
 			}
 			case "object":
