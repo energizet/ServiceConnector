@@ -2,6 +2,7 @@
 using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using ServiceConnector.TypeBuilder.Expressions;
 using ServiceConnector.TypeBuilder.Interfaces;
 
 namespace ServiceConnector.TypeBuilder.Builders;

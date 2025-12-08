@@ -3,6 +3,7 @@ using System.Linq.Expressions;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using ServiceConnector.Common;
+using ServiceConnector.Common.Extensions;
 using ServiceConnector.TypeBuilder;
 
 namespace ServiceConnector.Jobs.Jobs;
@@ -89,7 +90,7 @@ public class MappingJob(
 				var staticCount = IArray.StaticCount(list.Type);
 				var isOnlyStatic = IArray.IsOnlyStatic(list.Type);
 
-				var props = new List<Type>(staticCount + 1);
+				var props = new List<Type>(staticCount);
 				for (var j = 0; j < staticCount; j++)
 				{
 					props.Add(list.Type.GetProperty($"Item_{j}")!.PropertyType);

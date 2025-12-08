@@ -1,4 +1,5 @@
-﻿using ServiceConnector.TypeBuilder.Interfaces;
+﻿using ServiceConnector.TypeBuilder.Expressions;
+using ServiceConnector.TypeBuilder.Interfaces;
 
 namespace ServiceConnector.TypeBuilder.Builders;
 

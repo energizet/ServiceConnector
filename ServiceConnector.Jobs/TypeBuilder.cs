@@ -10,37 +10,61 @@ public class TypeBuilder(AssemblyBuilderFactory factory, TypeFinder finder, Expr
 {
 	public Type BuildType(TypesStore types, JsonElement data, string typeName)
 	{
-		switch (data.ValueKind)
-		{
-			case JsonValueKind.String:
-				return finder.ParseType(data.GetString()!, types);
-			case JsonValueKind.True or JsonValueKind.False:
-				return typeof(bool);
-			case JsonValueKind.Number:
-				return typeof(decimal);
-			case JsonValueKind.Null or JsonValueKind.Undefined:
-				return typeof(object);
-			case JsonValueKind.Array:
-			{
-				var elements = data.EnumerateArray().ToList();
-				var newTypes = elements.Select((x, i) => BuildType(types, x, $"{typeName}{i}")).ToList();
+		var schema = GetSchema(types, data);
+		return BuildType(types, schema, typeName);
+	}
 
-				return BuildArray(typeName, newTypes);
+	private Type BuildType(TypesStore types, SchemaNode data, string typeName)
+	{
+		if (data.OriginType!=null)
+		{
+			return data.OriginType;
+		}
+		
+		switch (data.Type)
+		{
+			case UniversalType.Unknown:
+				return typeof(object);
+			case UniversalType.String:
+				return typeof(string);
+			case UniversalType.Boolean:
+				return typeof(bool);
+			case UniversalType.Number:
+				return typeof(decimal);
+			case UniversalType.DateTime:
+				return typeof(DateTime);
+			case UniversalType.Array:
+			{
+				if (data.ArrayItemSchema == null)
+				{
+					throw new NullReferenceException("Unknown type in array");
+				}
+
+				return typeof(List<>).MakeGenericType(BuildType(types, data.ArrayItemSchema, typeName));
+				//var elements = data.EnumerateArray().ToList();
+				//var newTypes = elements.Select((x, i) => BuildType(types, x, $"{typeName}{i}")).ToList();
+
+				//return BuildArray(typeName, newTypes);
 			}
-			case JsonValueKind.Object:
+			case UniversalType.Object:
 			default:
 			{
+				if (data.Properties == null)
+				{
+					throw new NullReferenceException("Unknown properties in object");
+				}
+
 				var builder = factory.Create(typeName)
 					.AddUsing("ProtoBuf");
 
 				var classBuilder = builder.CreateClass(typeName)
 					.AddAttribute("ProtoContract");
 
-				var number = 1;
-				foreach (var child in data.EnumerateObject())
+				var i = 1;
+				foreach (var (name, child) in data.Properties)
 				{
-					var type = BuildType(types, child.Value, typeName + child.Name);
-					classBuilder.CreateProperty(child.Name, type, attributes: $"ProtoMember({number++})");
+					var type = BuildType(types, child, $"{typeName}_{name}");
+					classBuilder.CreateProperty(child.Name, type, attributes: $"ProtoMember({i++})");
 				}
 
 				return builder.Build().First();
@@ -48,7 +72,51 @@ public class TypeBuilder(AssemblyBuilderFactory factory, TypeFinder finder, Expr
 		}
 	}
 
+	private SchemaNode GetSchema(TypesStore types, JsonElement data)
+	{
+		var type = GetType(types, data);
+		if (type != null)
+		{
+			return type.ConvertToSchema();
+		}
+
+		return data.ConvertToSchema(finder, types);
+	}
+
+	private Type? GetType(TypesStore types, JsonElement data)
+	{
+		switch (data.ValueKind)
+		{
+			case JsonValueKind.String:
+				return finder.ParseType(data.GetString()!, types);
+			case JsonValueKind.True or JsonValueKind.False:
+			case JsonValueKind.Number:
+			case JsonValueKind.Null or JsonValueKind.Undefined:
+			case JsonValueKind.Array:
+			case JsonValueKind.Object:
+			default:
+			{
+				return null;
+			}
+		}
+	}
+
 	public Type BuildArray(string name, List<Type> types, Type? otherType = null)
+	{
+		if (otherType == null && types.Count == 1)
+		{
+			return typeof(List<>).MakeGenericType(types[0]);
+		}
+
+		if (otherType != null && types.Count == 0)
+		{
+			return typeof(List<>).MakeGenericType(otherType);
+		}
+
+		return BuildArrayInternal(name, types, otherType);
+	}
+
+	private Type BuildArrayInternal(string name, List<Type> types, Type? otherType = null)
 	{
 		var builder = factory.Create(name)
 			.CreateClass<object>([typeof(IArray)], name);

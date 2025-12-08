@@ -3,6 +3,8 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ServiceConnector.Common;
+using ServiceConnector.Common.Extensions;
 using ServiceConnector.Jobs;
 using ServiceConnector.TypeBuilder;
 

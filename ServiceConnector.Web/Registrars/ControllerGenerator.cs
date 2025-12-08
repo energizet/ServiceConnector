@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using ProtoBuf.Grpc.Configuration;
 using ServiceConnector.Common;
 using ServiceConnector.TypeBuilder;
+using ServiceConnector.TypeBuilder.Expressions;
 using ServiceConnector.TypeBuilder.Interfaces;
 using ServiceConnector.Web.Controllers;
 

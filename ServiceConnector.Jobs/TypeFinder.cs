@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using ServiceConnector.Common;
-using ServiceConnector.TypeBuilder;
+using ServiceConnector.Common.Extensions;
 
 namespace ServiceConnector.Jobs;
 

@@ -1,5 +1,7 @@
 using System.Text;
 using System.Text.Json;
+using ServiceConnector.Common;
+using ServiceConnector.Common.Extensions;
 using ServiceConnector.TypeBuilder;
 using ServiceConnector.TypeBuilder.Interfaces;
 
