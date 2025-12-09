@@ -21,7 +21,8 @@ public class ClassBuilder(Type baseType, List<string> interfaces, string name, A
 
 	public IClassBuilder CreateField(string name, Type type, string modifier = "public", params string[] attributes)
 	{
-		return CreateField(name, type.ToDisplayString(), modifier, attributes);
+		var underlying = Nullable.GetUnderlyingType(type) ?? type;
+		return CreateField(name, underlying.ToDisplayString(), modifier, attributes);
 	}
 
 	public IClassBuilder CreateField(string name, string type, string modifier = "public", params string[] attributes)
@@ -40,14 +41,15 @@ public class ClassBuilder(Type baseType, List<string> interfaces, string name, A
 
 	public IClassBuilder CreateProperty(string name, Type type, string modifier = "public", params string[] attributes)
 	{
-		return CreateProperty(name, type.ToDisplayString(), modifier, attributes);
+		var underlying = Nullable.GetUnderlyingType(type) ?? type;
+		return CreateProperty(name, underlying.ToDisplayString(), modifier, attributes);
 	}
 
 	public IClassBuilder CreateProperty(string name, string type, string modifier = "public",
 		params string[] attributes)
 	{
 		var str = $$"""
-		                {{modifier}} {{type}} {{name}} { get; set; }
+		                {{modifier}} {{type}}? {{name}} { get; set; }
 		            """;
 		if (attributes.Length > 0)
 		{
