@@ -110,8 +110,9 @@ public class HttpRequestJob(
 					{
 						var name = Expression.Constant(item.Name);
 
-						var type = typeBuilder.BuildType(types, item.Value, $"{definition.RequestId}_{Id}_{item.Name}");
-						var value = typeBuilder.BuildObject(types, item.Value, type, store, Linker);
+						var schema = typeBuilder.GetSchema(types, item.Value);
+						var type = typeBuilder.BuildType(schema, $"{definition.RequestId}_{Id}_{item.Name}");
+						var value = typeBuilder.BuildObject(types, schema, type, store, Linker);
 						var valueStr = Expression.Call(value, nameof(ToString), null);
 
 						builder.Body.Add(Expression.Call(queryList, nameof(QueryList.Add), null, name, valueStr));
@@ -160,8 +161,9 @@ public class HttpRequestJob(
 
 		if (Config.Data != null)
 		{
-			var type = typeBuilder.BuildType(types, Config.Data.Value, $"{definition.RequestId}_{Id}_data");
-			value = typeBuilder.BuildObject(types, Config.Data.Value, type, store, Linker);
+			var schema = typeBuilder.GetSchema(types, Config.Data.Value);
+			var type = typeBuilder.BuildType(schema, $"{definition.RequestId}_{Id}_data");
+			value = typeBuilder.BuildObject(types, schema, type, store, Linker);
 		}
 
 		return builder.CreateLambda<Func<PipelineStore, object?>>(value)

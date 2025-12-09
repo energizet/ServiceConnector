@@ -8,19 +8,13 @@ namespace ServiceConnector.Jobs;
 
 public class TypeBuilder(AssemblyBuilderFactory factory, TypeFinder finder, ExpressionGeneratorFactory generator)
 {
-	public Type BuildType(TypesStore types, JsonElement data, string typeName)
+	public Type BuildType(SchemaNode data, string typeName)
 	{
-		var schema = GetSchema(types, data);
-		return BuildType(types, schema, typeName);
-	}
-
-	private Type BuildType(TypesStore types, SchemaNode data, string typeName)
-	{
-		if (data.OriginType!=null)
+		if (data.ClrType != null)
 		{
-			return data.OriginType;
+			return data.ClrType;
 		}
-		
+
 		switch (data.Type)
 		{
 			case UniversalType.Unknown:
@@ -40,11 +34,9 @@ public class TypeBuilder(AssemblyBuilderFactory factory, TypeFinder finder, Expr
 					throw new NullReferenceException("Unknown type in array");
 				}
 
-				return typeof(List<>).MakeGenericType(BuildType(types, data.ArrayItemSchema, typeName));
-				//var elements = data.EnumerateArray().ToList();
-				//var newTypes = elements.Select((x, i) => BuildType(types, x, $"{typeName}{i}")).ToList();
-
-				//return BuildArray(typeName, newTypes);
+				data.ArrayItemSchema.ClrType = BuildType(data.ArrayItemSchema, typeName);
+				data.ClrType = typeof(List<>).MakeGenericType(data.ArrayItemSchema.ClrType);
+				return data.ClrType;
 			}
 			case UniversalType.Object:
 			default:
@@ -61,10 +53,10 @@ public class TypeBuilder(AssemblyBuilderFactory factory, TypeFinder finder, Expr
 					.AddAttribute("ProtoContract");
 
 				var i = 1;
-				foreach (var (name, child) in data.Properties)
+				foreach (var child in data.Properties.Values)
 				{
-					var type = BuildType(types, child, $"{typeName}_{name}");
-					classBuilder.CreateProperty(child.Name, type, attributes: $"ProtoMember({i++})");
+					child.ClrType = BuildType(child, $"{typeName}_{child.Name}");
+					classBuilder.CreateProperty(child.Name, child.ClrType, attributes: $"ProtoMember({i++})");
 				}
 
 				return builder.Build().First();
@@ -72,34 +64,85 @@ public class TypeBuilder(AssemblyBuilderFactory factory, TypeFinder finder, Expr
 		}
 	}
 
-	private SchemaNode GetSchema(TypesStore types, JsonElement data)
+	public Expression BuildObject(TypesStore types, SchemaNode data, Type resultType, ParameterExpression store,
+		ILinker linker)
 	{
-		var type = GetType(types, data);
-		if (type != null)
+		if (data.IsPath)
 		{
-			return type.ConvertToSchema();
+			var lambda = generator.Create(linker).GetValue((string)data.OriginValue!, types);
+			return Expression.Invoke(lambda, store);
 		}
 
-		return data.ConvertToSchema(finder, types);
-	}
-
-	private Type? GetType(TypesStore types, JsonElement data)
-	{
-		switch (data.ValueKind)
+		switch (data.Type)
 		{
-			case JsonValueKind.String:
-				return finder.ParseType(data.GetString()!, types);
-			case JsonValueKind.True or JsonValueKind.False:
-			case JsonValueKind.Number:
-			case JsonValueKind.Null or JsonValueKind.Undefined:
-			case JsonValueKind.Array:
-			case JsonValueKind.Object:
+			case UniversalType.Unknown:
+				return Expression.Constant(null);
+			case UniversalType.String:
+				return Expression.Constant((string)data.OriginValue!);
+			case UniversalType.Boolean:
+				return Expression.Constant((bool)data.OriginValue!);
+			case UniversalType.Number:
+				return Expression.Constant((decimal)data.OriginValue!);
+			case UniversalType.DateTime:
+				return Expression.Constant((DateTime)data.OriginValue!);
+			case UniversalType.Array:
+			{
+				if (data.ArrayItemSchema?.ClrType == null)
+				{
+					throw new NullReferenceException("Unknown type in array");
+				}
+
+				var listInitializers = new List<ElementInit>();
+
+				var schemaNodes = (List<SchemaNode>)data.OriginValue!;
+
+				var propertyInfo = resultType.GetMethod("Add")!;
+				foreach (var node in schemaNodes)
+				{
+					listInitializers.Add(Expression.ElementInit(
+						propertyInfo,
+						BuildObject(types, node, data.ArrayItemSchema.ClrType, store, linker)
+					));
+				}
+
+				return Expression.ListInit(Expression.New(resultType), listInitializers);
+			}
+			case UniversalType.Object:
 			default:
 			{
-				return null;
+				if (data.Properties == null)
+				{
+					throw new NullReferenceException("Unknown properties in object");
+				}
+
+				var memberBindings = new List<MemberAssignment>();
+
+				foreach (var child in data.Properties.Values)
+				{
+					var propertyInfo = resultType.GetProperty(child.Name)!;
+					memberBindings.Add(Expression.Bind(
+						propertyInfo,
+						BuildObject(types, child, propertyInfo.PropertyType, store, linker)
+					));
+				}
+
+				return Expression.MemberInit(Expression.New(resultType), memberBindings);
 			}
 		}
 	}
+
+	public SchemaNode GetSchema(TypesStore types, JsonElement data)
+	{
+		return data.ConvertToSchema(finder, types);
+	}
+
+	//public Type BuildArray(TypesStore types, JsonElement data, string typeName)
+	//{
+	//	var elements = data.EnumerateArray().ToList();
+	//	var newTypes = elements.Select((x, i) => BuildType(types, x, $"{typeName}{i}")).ToList();
+
+	//	return BuildArray(typeName, newTypes);
+	//}
 
 	public Type BuildArray(string name, List<Type> types, Type? otherType = null)
 	{
@@ -178,59 +221,26 @@ public class TypeBuilder(AssemblyBuilderFactory factory, TypeFinder finder, Expr
 		return Expression.Invoke(lambda, store);
 	}
 
-	public Expression BuildObject(TypesStore types, JsonElement data, Type resultType, ParameterExpression store,
-		ILinker linker)
-	{
-		switch (data.ValueKind)
-		{
-			case JsonValueKind.String:
-				var lambda = generator.Create(linker).GetValue(data.GetString()!, types);
-				return Expression.Invoke(lambda, store);
-			case JsonValueKind.True:
-				return Expression.Constant(true);
-			case JsonValueKind.False:
-				return Expression.Constant(false);
-			case JsonValueKind.Number:
-				return Expression.Constant(data.GetDecimal());
-			case JsonValueKind.Null or JsonValueKind.Undefined:
-				return Expression.Constant(null);
-			case JsonValueKind.Array:
-			{
-				var memberBindings = new List<MemberAssignment>();
+	//public Expression BuildArray(TypesStore types, JsonElement data, Type resultType, ParameterExpression store,
+	//	ILinker linker)
+	//{
+	//	var memberBindings = new List<MemberAssignment>();
 
-				var elements = data.EnumerateArray().ToList();
-				for (var i = 0; i < elements.Count; i++)
-				{
-					var propertyInfo = resultType.GetProperty($"Item_{i}")!;
-					memberBindings.Add(Expression.Bind(
-						propertyInfo,
-						BuildObject(types, elements[i], propertyInfo.PropertyType, store, linker)
-					));
-				}
+	//	var elements = data.EnumerateArray().ToList();
+	//	for (var i = 0; i < elements.Count; i++)
+	//	{
+	//		var propertyInfo = resultType.GetProperty($"Item_{i}")!;
+	//		memberBindings.Add(Expression.Bind(
+	//			propertyInfo,
+	//			BuildObject(types, elements[i], propertyInfo.PropertyType, store, linker)
+	//		));
+	//	}
 
-				memberBindings.Add(Expression.Bind(
-					resultType.GetProperty("Item_Others")!,
-					Expression.New(typeof(List<object>))
-				));
+	//	memberBindings.Add(Expression.Bind(
+	//		resultType.GetProperty("Item_Others")!,
+	//		Expression.New(typeof(List<object>))
+	//	));
 
-				return Expression.MemberInit(Expression.New(resultType), memberBindings);
-			}
-			case JsonValueKind.Object:
-			default:
-			{
-				var memberBindings = new List<MemberAssignment>();
-
-				foreach (var child in data.EnumerateObject())
-				{
-					var propertyInfo = resultType.GetProperty(child.Name)!;
-					memberBindings.Add(Expression.Bind(
-						propertyInfo,
-						BuildObject(types, child.Value, propertyInfo.PropertyType, store, linker)
-					));
-				}
-
-				return Expression.MemberInit(Expression.New(resultType), memberBindings);
-			}
-		}
-	}
+	//	return Expression.MemberInit(Expression.New(resultType), memberBindings);
+	//}
 }

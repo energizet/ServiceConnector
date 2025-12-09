@@ -33,8 +33,9 @@ public class ObjectJob(
 		var builder = generator.Create(Linker);
 		var store = builder.CreateParameter(typeof(PipelineStore), "store");
 
-		resultType = typeBuilder.BuildType(types, Config.Data, $"{definition.RequestId}{Id}Type");
-		var block = typeBuilder.BuildObject(types, Config.Data, resultType, store, Linker);
+		var schema = typeBuilder.GetSchema(types, Config.Data);
+		resultType = typeBuilder.BuildType(schema, $"{definition.RequestId}{Id}Type");
+		var block = typeBuilder.BuildObject(types, schema, resultType, store, Linker);
 		block = Expression.Convert(block, typeof(object));
 
 		return builder.CreateLambda<Func<PipelineStore, object?>>(block)

@@ -20,13 +20,43 @@ public class SchemaNode
 {
 	public required string Name { get; set; }
 	public UniversalType Type { get; set; }
-	public Dictionary<string, SchemaNode>? Properties { get; set; }
 	public SchemaNode? ArrayItemSchema { get; set; }
-	public Type? OriginType { get; set; }
+	public Dictionary<string, SchemaNode>? Properties { get; set; }
+	public Type? ClrType { get; set; }
+	public bool IsPath { get; set; }
+	public object? OriginValue { get; set; }
+
+	public SchemaNode Clone()
+	{
+		var clone = new SchemaNode
+		{
+			Name = Name,
+			Type = Type,
+			ClrType = ClrType,
+			IsPath = IsPath,
+			OriginValue = OriginValue,
+		};
+
+		if (ArrayItemSchema != null)
+		{
+			clone.ArrayItemSchema = ArrayItemSchema.Clone();
+		}
+
+		if (Properties != null)
+		{
+			clone.Properties = [];
+			foreach (var (key, value) in Properties)
+			{
+				clone.Properties[key] = value.Clone();
+			}
+		}
+
+		return clone;
+	}
 
 	public override string ToString()
 	{
-		var originInfo = OriginType != null ? $" [{OriginType.Name}]" : "";
+		var originInfo = ClrType != null ? $" [{ClrType.Name}]" : "";
 
 		if (Type == UniversalType.Array)
 		{
@@ -46,92 +76,132 @@ public static class SchemaBuilder
 {
 	public static SchemaNode InferCommonSchema(List<SchemaNode> schemas)
 	{
-		var root = new SchemaNode { Name = "Root", Type = UniversalType.Object };
-
-		foreach (var schema in schemas)
+		if (schemas.Count == 0)
 		{
-			MergeNodes(root, schema);
+			return new() { Name = "Root", Type = UniversalType.Unknown };
 		}
 
-		return root;
+		var seed = new SchemaNode { Name = "Root", Type = UniversalType.Unknown };
+		return schemas.Aggregate(seed, MergeNodes);
 	}
 
-	public static bool MergeNodes(SchemaNode target, SchemaNode source)
+	public static SchemaNode MergeNodes(SchemaNode a, SchemaNode b)
 	{
-		var isModified = false;
-
-		if (target.Type == UniversalType.Unknown)
+		if (a.Type == UniversalType.Unknown)
 		{
-			target.Type = source.Type;
-			target.ArrayItemSchema = source.ArrayItemSchema;
-			target.OriginType = source.OriginType;
-			isModified = true;
+			return b.Clone();
 		}
 
-		if (target.Type != source.Type && source.Type != UniversalType.Unknown)
+		if (b.Type == UniversalType.Unknown)
 		{
-			if (!target.Type.IsContainer() && !source.Type.IsContainer())
+			return a.Clone();
+		}
+
+		var result = new SchemaNode
+		{
+			Name = a.Name,
+			Type = a.Type,
+		};
+
+		var matchA = true;
+		var matchB = true;
+
+		if (a.Type != b.Type)
+		{
+			if (a.Type.IsContainer() || b.Type.IsContainer())
 			{
-				if (target.Type != UniversalType.String)
-				{
-					target.Type = UniversalType.String;
-					isModified = true;
-				}
+				result.Type = UniversalType.Object;
 			}
 			else
 			{
-				isModified = true;
+				result.Type = UniversalType.String;
 			}
-		}
 
-		if (target.Type == UniversalType.Array && source.Type == UniversalType.Array)
+			matchA = false;
+			matchB = false;
+		}
+		else if (a.Type == UniversalType.Array)
 		{
-			if (target.ArrayItemSchema == null)
+			if (a.ArrayItemSchema != null && b.ArrayItemSchema != null)
 			{
-				if (source.ArrayItemSchema != null)
+				result.ArrayItemSchema = MergeNodes(a.ArrayItemSchema, b.ArrayItemSchema);
+
+				if (result.ArrayItemSchema.ClrType != a.ArrayItemSchema.ClrType)
 				{
-					target.ArrayItemSchema = source.ArrayItemSchema;
+					matchA = false;
+				}
+
+				if (result.ArrayItemSchema.ClrType != b.ArrayItemSchema.ClrType)
+				{
+					matchB = false;
 				}
 			}
-			else if (source.ArrayItemSchema != null)
+			else if (a.ArrayItemSchema != null)
 			{
-				var itemChanged = MergeNodes(target.ArrayItemSchema, source.ArrayItemSchema);
-				if (itemChanged)
-				{
-					isModified = true;
-				}
+				result.ArrayItemSchema = a.ArrayItemSchema.Clone();
+				matchB = false;
+			}
+			else if (b.ArrayItemSchema != null)
+			{
+				result.ArrayItemSchema = b.ArrayItemSchema.Clone();
+				matchA = false;
 			}
 		}
-
-		if (target.Type == UniversalType.Object && source.Type == UniversalType.Object)
+		else if (a.Type == UniversalType.Object)
 		{
-			target.Properties ??= [];
-			source.Properties ??= [];
-			
-			foreach (var prop in source.Properties)
+			result.Properties = [];
+			var propsA = a.Properties ?? [];
+			var propsB = b.Properties ?? [];
+
+			var allKeys = propsA.Keys.Union(propsB.Keys);
+
+			foreach (var key in allKeys)
 			{
-				if (!target.Properties.TryGetValue(prop.Key, out var property))
+				var hasInA = propsA.TryGetValue(key, out var propA);
+				var hasInB = propsB.TryGetValue(key, out var propB);
+
+				if (hasInA && hasInB)
 				{
-					target.Properties[prop.Key] = prop.Value;
-					isModified = true;
+					var mergedProp = MergeNodes(propA!, propB!);
+					result.Properties[key] = mergedProp;
+
+					if (mergedProp.ClrType == null || mergedProp.ClrType != propA!.ClrType)
+					{
+						matchA = false;
+					}
+
+					if (mergedProp.ClrType == null || mergedProp.ClrType != propB!.ClrType)
+					{
+						matchB = false;
+					}
+				}
+				else if (hasInA)
+				{
+					result.Properties[key] = propA!.Clone();
+					matchB = false;
 				}
 				else
 				{
-					var propChanged = MergeNodes(property, prop.Value);
-					if (propChanged)
-					{
-						isModified = true;
-					}
+					result.Properties[key] = propB!.Clone();
+					matchA = false;
 				}
 			}
 		}
-		
-		if (isModified)
+
+		if (matchB && b.ClrType != null)
 		{
-			target.OriginType = null;
+			result.ClrType = b.ClrType;
+		}
+		else if (matchA && a.ClrType != null)
+		{
+			result.ClrType = a.ClrType;
+		}
+		else
+		{
+			result.ClrType = null;
 		}
 
-		return isModified;
+		return result;
 	}
 }
 
@@ -170,7 +240,7 @@ public static class SchemaBuilderExtensions
 			var node = new SchemaNode
 			{
 				Name = name,
-				OriginType = type,
+				ClrType = type,
 			};
 
 			var underlying = Nullable.GetUnderlyingType(type) ?? type;
@@ -228,12 +298,18 @@ public static class SchemaBuilderExtensions
 		switch (data.ValueKind)
 		{
 			case JsonValueKind.String:
-				return finder.ParseType(data.GetString()!, types).ConvertToSchema(name);
+				var value = data.GetString()!;
+				node = finder.ParseType(value, types).ConvertToSchema(name);
+				node.IsPath = true;
+				node.OriginValue = value;
+				break;
 			case JsonValueKind.True or JsonValueKind.False:
 				node.Type = UniversalType.Boolean;
+				node.OriginValue = data.ValueKind == JsonValueKind.True;
 				break;
 			case JsonValueKind.Number:
 				node.Type = UniversalType.Number;
+				node.OriginValue = data.GetDecimal();
 				break;
 			case JsonValueKind.Null or JsonValueKind.Undefined:
 				node.Type = UniversalType.Unknown;
@@ -241,22 +317,22 @@ public static class SchemaBuilderExtensions
 			case JsonValueKind.Array:
 				node.Type = UniversalType.Array;
 				var itemNode = new SchemaNode { Name = "Item", Type = UniversalType.Unknown };
-				foreach (var item in data.EnumerateArray())
-				{
-					var tempNode = item.ConvertToSchema(finder, types, "Item");
-					SchemaBuilder.MergeNodes(itemNode, tempNode);
-				}
 
-				node.ArrayItemSchema = itemNode;
+				var schemaNodes = data.EnumerateArray()
+					.Select(item => item.ConvertToSchema(finder, types, "Item"))
+					.ToList();
+
+				node.ArrayItemSchema = schemaNodes.Aggregate(itemNode, SchemaBuilder.MergeNodes);
+				node.OriginValue = schemaNodes;
 				break;
 			case JsonValueKind.Object:
 				node.Type = UniversalType.Object;
 				node.Properties ??= [];
+
 				foreach (var prop in data.EnumerateObject())
 				{
 					node.Properties[prop.Name] = prop.Value.ConvertToSchema(finder, types, prop.Name);
 				}
-
 				break;
 		}
 

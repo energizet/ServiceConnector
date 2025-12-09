@@ -138,8 +138,9 @@ public class MappingJob(
 				types[$"item{j}"] = variablesTypes[j].Variable;
 			}
 
-			var type = typeBuilder.BuildType(types, Config.Map, $"{definition.RequestId}_{Id}_{i}");
-			var value = typeBuilder.BuildObject(types, Config.Map, type, store, Linker);
+			var schema = typeBuilder.GetSchema(types, Config.Map);
+			var type = typeBuilder.BuildType(schema, $"{definition.RequestId}_{Id}_{i}");
+			var value = typeBuilder.BuildObject(types, schema, type, store, Linker);
 			yield return value;
 
 			if (variablesTypes.All(x => x.IsLast))
@@ -180,45 +181,57 @@ public class MappingJob(
 			);
 		}
 
-		var getOtherBuilder = generator.Create(Linker);
-		var others = getOtherBuilder.CreateVariable(Expression.PropertyOrField(result, "Item_Others"), "others",
-			checkNull: false);
-		getOtherBuilder.Body.Add(Expression.IfThen(
-			Expression.Equal(others, Expression.Constant(null)),
-			Expression.Assign(
-				Expression.PropertyOrField(result, "Item_Others"),
-				Expression.Assign(
-					others,
-					Expression.New(others.Type)
-				)
-			)
-		));
-		getOtherBuilder.Body.Add(Expression.Call(
-			others,
-			nameof(IList.Add),
-			null,
-			objects[^1]
-		));
-
-		Expression res = IArray.IsOnlyStatic(result.Type)
-			? Expression.Assign(
-				Expression.PropertyOrField(result, $"Item_{objects.Count - 1}"),
-				objects[^1]
-			)
-			: getOtherBuilder.CreateBlock();
-		for (var i = objects.Count - 2; i >= 0; i--)
+		if (result.Type.TryTo(typeof(IArray), out _))
 		{
-			res = Expression.IfThenElse(
-				Expression.Equal(index, Expression.Constant(i)),
+			var getOtherBuilder = generator.Create(Linker);
+			var others = getOtherBuilder.CreateVariable(Expression.PropertyOrField(result, "Item_Others"), "others",
+				checkNull: false);
+			getOtherBuilder.Body.Add(Expression.IfThen(
+				Expression.Equal(others, Expression.Constant(null)),
 				Expression.Assign(
-					Expression.PropertyOrField(result, $"Item_{i}"),
-					objects[i]
-				),
-				res
-			);
-		}
+					Expression.PropertyOrField(result, "Item_Others"),
+					Expression.Assign(
+						others,
+						Expression.New(others.Type)
+					)
+				)
+			));
+			getOtherBuilder.Body.Add(Expression.Call(
+				others,
+				nameof(IList.Add),
+				null,
+				objects[^1]
+			));
 
-		builder.Body.Add(res);
+			Expression res = IArray.IsOnlyStatic(result.Type)
+				? Expression.Assign(
+					Expression.PropertyOrField(result, $"Item_{objects.Count - 1}"),
+					objects[^1]
+				)
+				: getOtherBuilder.CreateBlock();
+			for (var i = objects.Count - 2; i >= 0; i--)
+			{
+				res = Expression.IfThenElse(
+					Expression.Equal(index, Expression.Constant(i)),
+					Expression.Assign(
+						Expression.PropertyOrField(result, $"Item_{i}"),
+						objects[i]
+					),
+					res
+				);
+			}
+
+			builder.Body.Add(res);
+		}
+		else if (result.Type.TryTo(typeof(IEnumerable<>), out _))
+		{
+			builder.Body.Add(Expression.Call(
+				result,
+				nameof(IList.Add),
+				null,
+				objects[^1]
+			));
+		}
 
 		return builder.CreateLambda();
 	}
