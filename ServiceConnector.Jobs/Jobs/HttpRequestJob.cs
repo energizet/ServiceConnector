@@ -25,6 +25,10 @@ public class HttpRequestJobConfig : BaseJobConfig
 
 	public JsonElement? Data { get; set; }
 	public JsonElement Response { get; set; }
+
+	public int? RetryCount { get; set; }
+	public float? RetryDelay { get; set; }
+	public float? Timeout { get; set; }
 }
 
 [PipelineJob]
@@ -50,6 +54,28 @@ public class HttpRequestJob(
 
 	public override Task<Type> Compile(TypesStore types, CancellationToken cancellationToken)
 	{
+		Config.RetryCount ??= 1;
+		Config.RetryDelay ??= 0.1f;
+		Config.Timeout ??= 300;
+
+		if (Config.RetryCount <= 0)
+		{
+			throw new ArgumentOutOfRangeException(nameof(Config.RetryCount), Config.RetryCount,
+				$"{definition.RequestId}.{Id}.RetryCount must be a positive number");
+		}
+
+		if (Config.RetryDelay < 0)
+		{
+			throw new ArgumentOutOfRangeException(nameof(Config.RetryDelay), Config.RetryDelay,
+				$"{definition.RequestId}.{Id}.RetryDelay must be a positive number");
+		}
+
+		if (Config.Timeout < 0)
+		{
+			throw new ArgumentOutOfRangeException(nameof(Config.Timeout), Config.Timeout,
+				$"{definition.RequestId}.{Id}.RetryCount must be a positive number");
+		}
+
 		ResponseType = BuildResponseType();
 		GetMethod();
 		GetUrl = BuildGetUrl(types).Compile();
@@ -102,9 +128,6 @@ public class HttpRequestJob(
 		{
 			switch (Config.Params?.ValueKind)
 			{
-				case JsonValueKind.String:
-					throw new NotImplementedException();
-					break;
 				case JsonValueKind.Object:
 					foreach (var item in Config.Params.Value.EnumerateObject())
 					{
@@ -174,6 +197,40 @@ public class HttpRequestJob(
 public class HttpRequestJobRunner(HttpRequestJob job, PipelineStore store, HttpClient client) : IRunner
 {
 	public async Task<object?> Run(CancellationToken cancellationToken)
+	{
+		var maxRetries = job.Config.RetryCount!.Value;
+		var timeout = TimeSpan.FromSeconds(job.Config.Timeout!.Value);
+		var delay = TimeSpan.FromSeconds(job.Config.RetryDelay!.Value);
+
+		for (var attempt = 1; attempt <= maxRetries; attempt++)
+		{
+			using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+			cts.CancelAfter(timeout);
+
+			try
+			{
+				return await Send(cts.Token);
+			}
+			catch (Exception)
+			{
+				if (cancellationToken.IsCancellationRequested)
+				{
+					throw;
+				}
+
+				if (attempt == maxRetries)
+				{
+					throw;
+				}
+
+				await Task.Delay(delay, cts.Token);
+			}
+		}
+
+		return null;
+	}
+
+	private async Task<object?> Send(CancellationToken cancellationToken)
 	{
 		var message = new HttpRequestMessage
 		{

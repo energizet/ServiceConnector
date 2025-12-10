@@ -58,63 +58,8 @@ public static class RegistrarExtensions
 
 		app.Services.GetRequiredService<GrpcRegistrar>().Init(app);
 
-		app.MapGrpcService<TestClass>();
 		app.MapCodeFirstGrpcReflectionService();
 
 		return app;
-	}
-}
-
-[Service]
-public interface TestInterface
-{
-	public TestResponse Add(TestRequest request);
-}
-
-public class TestClass : TestInterface
-{
-	public TestResponse Add(TestRequest request)
-	{
-		return new();
-	}
-}
-
-[ProtoContract]
-public class TestRequest
-{
-	[ProtoMember(1)]
-	public IEnumerable<object> Number { get; set; }
-}
-
-[ProtoContract]
-public class TestResponse
-{
-}
-
-public class TestArray : IArray
-{
-	public IEnumerator GetEnumerator()
-	{
-		throw new NotImplementedException();
-	}
-
-	public int Count()
-	{
-		throw new NotImplementedException();
-	}
-
-	public object? Get(int index)
-	{
-		throw new NotImplementedException();
-	}
-
-	public static bool IsOnlyStatic()
-	{
-		throw new NotImplementedException();
-	}
-
-	public static int StaticCount()
-	{
-		throw new NotImplementedException();
 	}
 }

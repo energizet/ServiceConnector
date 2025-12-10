@@ -87,7 +87,7 @@ public partial class JobGraph
 				}
 
 				RemainingDeps[node] = deps.Visit();
-				Tasks.Add(node.IsAsync ? RunNode(node) : Task.Run(() => RunNode(node)));
+				Tasks.Add(node.IsAsync ? RunNode(node) : Task.Run(() => RunNode(node), CancellationToken));
 			}
 		}
 
