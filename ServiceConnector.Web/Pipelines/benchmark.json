@@ -1,0 +1,35 @@
+[
+  {
+    "RequestId": "get-list",
+    "Request": {
+      "type": "object"
+    },
+    "Pipeline": [
+      {
+        "Type": "HttpRequest",
+        "Id": "GetList",
+        "Method": "GET",
+        "Url": "http://localhost:5158/api/GetList",
+        "Response": {
+          "type": "object",
+          "properties": {
+            "Collection": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Header": {
+                    "type": "string"
+                  },
+                  "response": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

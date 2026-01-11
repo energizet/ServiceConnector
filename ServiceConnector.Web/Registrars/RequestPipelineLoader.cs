@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using ServiceConnector.Common;
 using ServiceConnector.Jobs;
 using ServiceConnector.TypeBuilder;
@@ -43,7 +44,7 @@ public class RequestPipelineLoader(
 
 		foreach (var element in pipelines!)
 		{
-			if (!TryDeserialize<PipelineDefinition>(element, out var definition))
+			if (!TryDeserialize(element, out var definition))
 			{
 				continue;
 			}
@@ -65,12 +66,11 @@ public class RequestPipelineLoader(
 		}
 	}
 
-	private bool TryDeserialize<T>(JsonElement node, out T? res)
-		where T : class
+	private bool TryDeserialize(JsonElement node, out PipelineDefinition? res)
 	{
 		try
 		{
-			res = node.Deserialize<T>();
+			res = node.Deserialize(AppJsonSerializerContext.Default.PipelineDefinition);
 			return true;
 		}
 		catch (JsonException ex)
@@ -87,7 +87,7 @@ public class RequestPipelineLoader(
 	{
 		try
 		{
-			res = JsonSerializer.Deserialize<JsonElement[]>(json);
+			res = JsonSerializer.Deserialize(json, AppJsonSerializerContext.Default.JsonElementArray);
 			return true;
 		}
 		catch (JsonException ex)
@@ -119,3 +119,7 @@ public class RequestPipelineLoader(
 		}
 	}
 }
+
+[JsonSerializable(typeof(JsonElement[]))]
+[JsonSerializable(typeof(PipelineDefinition))]
+internal partial class AppJsonSerializerContext : JsonSerializerContext;
