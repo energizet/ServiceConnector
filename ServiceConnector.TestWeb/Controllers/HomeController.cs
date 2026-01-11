@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ServiceConnector.TestWeb.Controllers;
@@ -15,6 +16,37 @@ public class HomeController : ControllerBase
 			Header = $"Header = {header}",
 			Response = $"Request = {request}",
 		});
+	}
+
+	[HttpGet("[action]")]
+	public Task<Res> GetList(CancellationToken token)
+	{
+		var list = Enumerable.Range(0, 1_000_000).Select(i => new TestResponse
+		{
+			Response = $"{i}",
+		}).ToList();
+		var a = JsonSerializer.Serialize(list);
+		return Task.FromResult(new Res
+		{
+			Collection = JsonSerializer.Deserialize<List<TestResponse>>(a)!.Select(i => new TestResponse
+			{
+				Response = i.Response,
+			}).ToList(),
+		});
+	}
+
+	[HttpGet("[action]")]
+	public Task<TestResponse> GetOne(CancellationToken token)
+	{
+		return Task.FromResult(new TestResponse
+		{
+			Response = $"1",
+		});
+	}
+
+	public class Res
+	{
+		public List<TestResponse> Collection { get; set; }
 	}
 
 	[HttpPost("[action]")]

@@ -4,9 +4,6 @@
     "Request": {
       "type": "object",
       "properties": {
-        "header": {
-          "type": "string"
-        },
         "name": {
           "type": "string"
         },
@@ -16,12 +13,6 @@
             "type": "object",
             "properties": {
               "Title": {
-                "type": "string"
-              },
-              "TitleType": {
-                "type": "string"
-              },
-              "Type": {
                 "type": "string"
               }
             }
@@ -81,38 +72,28 @@
         "Id": "array",
         "Data": [
           {
-            "Num": 1,
-            "Title": "Test",
-            "TestGet": "$TestGet",
-            "TestPost": "$TestPost"
+            "Title": "Test"
           },
           {
-            "Title": "Настройки",
-            "Type": "link",
-            "Icon": "settings",
-            "Target": "_blank"
+            "Title": "Настройки"
           },
           {
-            "Title": "Выход",
-            "Type": "button",
-            "Icon": "logout",
-            "Action": "logout"
+            "Title": "Выход"
           }
         ]
       },
       {
         "Type": "Mapping",
-        "Id": "result",
+        "Id": "mapping",
         "Lists": [
           "$array",
           "$request.array"
         ],
         "Map": {
-          "Num": "$item.Num",
           "Title": "$item.Title",
-          "Title0": "$item0.Title",
-          "Title1": "$item1.Title",
-          "TitleType": "{{$item.Title}}--{{$item.Type}}"
+          "StaticTitle": "$item0.Title",
+          "RequestTitle": "$item1.Title",
+          "Name": "$TestGet.response"
         }
       },
       {
@@ -120,7 +101,8 @@
         "Id": "variable",
         "Data": {
           "array": "$array",
-          "result": "$result"
+          "mapping": "$mapping",
+          "TestPost": "$TestPost"
         }
       }
     ]
