@@ -4,7 +4,7 @@ using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Running;
 
-BenchmarkRunner.Run<JsonDeserializationBenchmark>();
+BenchmarkRunner.Run<ApiBenchmark>();
 
 // Атрибут для генератора кода System.Text.Json (Шаг оптимизации №1)
 [JsonSerializable(typeof(UserDto))]

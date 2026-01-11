@@ -13,12 +13,12 @@
         "Response": {
           "type": "object",
           "properties": {
-            "Collection": {
+            "collection": {
               "type": "array",
               "items": {
                 "type": "object",
                 "properties": {
-                  "Header": {
+                  "header": {
                     "type": "string"
                   },
                   "response": {

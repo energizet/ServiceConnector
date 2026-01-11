@@ -30,6 +30,7 @@ public class HomeController : ControllerBase
 		{
 			Collection = JsonSerializer.Deserialize<List<TestResponse>>(a)!.Select(i => new TestResponse
 			{
+				Header = i.Response,
 				Response = i.Response,
 			}).ToList(),
 		});
@@ -40,6 +41,7 @@ public class HomeController : ControllerBase
 	{
 		return Task.FromResult(new TestResponse
 		{
+			Header = $"1",
 			Response = $"1",
 		});
 	}

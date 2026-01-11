@@ -42,8 +42,10 @@ public class HttpRequestJob(
 	ILogger<HttpRequestJob> logger
 ) : BaseJob<HttpRequestJobConfig, HttpRequestJobRunner>(config, isAsync: true)
 {
-	public delegate ValueTask<object?> DeserializerStreamDelegate(Stream stream, JsonSerializerOptions? options,
+	public delegate ValueTask<object?> DeserializerStreamOptionDelegate(Stream stream, JsonSerializerOptions? options,
 		CancellationToken ct);
+
+	public delegate ValueTask<object?> DeserializerStreamDelegate(Stream stream, CancellationToken ct);
 
 	public delegate object? DeserializerDelegate(string json, JsonSerializerOptions? options);
 
@@ -51,6 +53,7 @@ public class HttpRequestJob(
 	public Func<PipelineStore, QueryList> GetQuery { get; private set; } = null!;
 	public Func<PipelineStore, HeaderList> GetHeaders { get; private set; } = null!;
 	public Func<PipelineStore, object?> GetData { get; private set; } = null!;
+	public DeserializerStreamOptionDelegate DeserializeStreamOption { get; private set; } = null!;
 	public DeserializerStreamDelegate DeserializeStream { get; private set; } = null!;
 	public DeserializerDelegate Deserialize { get; private set; } = null!;
 	public Type ResponseType { get; private set; } = typeof(object);
@@ -90,6 +93,7 @@ public class HttpRequestJob(
 		GetQuery = BuildGetQuery(types).Compile();
 		GetHeaders = BuildGetHeaders(types).Compile();
 		GetData = BuildGetData(types).Compile();
+		DeserializeStreamOption = BuildDeserializeStreamOption().Compile();
 		DeserializeStream = BuildDeserializeStream().Compile();
 		Deserialize = BuildDeserialize().Compile();
 		return Task.FromResult(ResponseType);
@@ -208,7 +212,6 @@ public class HttpRequestJob(
 		var builder = generator.Create(Linker);
 
 		var stream = builder.CreateParameter(typeof(Stream), "stream");
-		var options = builder.CreateParameter(typeof(JsonSerializerOptions), "options");
 		var token = builder.CreateParameter(typeof(CancellationToken), "ct");
 
 		var type = typeof(DeserializerWrapper<>).MakeGenericType(ResponseType);
@@ -220,11 +223,35 @@ public class HttpRequestJob(
 		var expression = Expression.Call(
 			methodInfo,
 			stream,
-			options,
 			token
 		);
 
 		return builder.CreateLambda<DeserializerStreamDelegate>(expression)
+			.Log($"{definition.RequestId}.{Id} {nameof(DeserializeStream)}", logger);
+	}
+
+	private Expression<DeserializerStreamOptionDelegate> BuildDeserializeStreamOption()
+	{
+		var builder = generator.Create(Linker);
+
+		var stream = builder.CreateParameter(typeof(Stream), "stream");
+		var options = builder.CreateParameter(typeof(JsonSerializerOptions), "options");
+		var token = builder.CreateParameter(typeof(CancellationToken), "ct");
+
+		var type = typeof(DeserializerWrapper<>).MakeGenericType(ResponseType);
+		var methodInfo = type.GetMethod(
+			nameof(DeserializerWrapper<>.DeserializeStreamOptionAsync),
+			BindingFlags.Public | BindingFlags.Static
+		)!;
+
+		var expression = Expression.Call(
+			methodInfo,
+			stream,
+			options,
+			token
+		);
+
+		return builder.CreateLambda<DeserializerStreamOptionDelegate>(expression)
 			.Log($"{definition.RequestId}.{Id} {nameof(DeserializeStream)}", logger);
 	}
 
@@ -253,7 +280,12 @@ public class HttpRequestJob(
 
 	private static class DeserializerWrapper<T>
 	{
-		public static async ValueTask<object?> DeserializeStreamAsync(Stream stream, JsonSerializerOptions? options,
+		public static async ValueTask<object?> DeserializeStreamAsync(Stream stream, CancellationToken ct)
+		{
+			return await SpanJson.JsonSerializer.Generic.Utf8.DeserializeAsync<T>(stream, ct);
+		}
+
+		public static async ValueTask<object?> DeserializeStreamOptionAsync(Stream stream, JsonSerializerOptions? options,
 			CancellationToken ct)
 		{
 			return await JsonSerializer.DeserializeAsync<T>(stream, options, ct);
@@ -327,7 +359,10 @@ public class HttpRequestJobRunner(HttpRequestJob job, PipelineStore store, HttpC
 		response.EnsureSuccessStatusCode();
 
 		await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-		var result = await job.DeserializeStream(stream, job.Options, cancellationToken);
+		var result = await job.DeserializeStream(stream, cancellationToken);
+
+		//await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+		//var result = await job.DeserializeStreamOption(stream, job.Options, cancellationToken);
 
 		//var json = await response.Content.ReadAsStringAsync(cancellationToken);
 		//var result = job.Deserialize(json, job.Options);
