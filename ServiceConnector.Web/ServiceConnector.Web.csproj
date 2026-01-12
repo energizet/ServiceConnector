@@ -9,7 +9,7 @@
     <ItemGroup>
         <PackageReference Include="protobuf-net.Grpc.AspNetCore" Version="1.2.2" />
         <PackageReference Include="protobuf-net.Grpc.AspNetCore.Reflection" Version="1.2.2" />
-        <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.6" />
+        <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.0" />
 
     </ItemGroup>
 

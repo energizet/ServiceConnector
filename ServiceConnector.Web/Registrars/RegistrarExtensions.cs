@@ -39,7 +39,7 @@ public static class RegistrarExtensions
 		services.AddSingleton<GrpcRegistrar>();
 		services.AddSingleton<ExpressionGeneratorFactory>();
 		services.AddSingleton<TypeFinder>();
-		services.TryAddTransient<HttpClient>();
+		services.AddHttpClient();
 
 		services.AddSingleton<IActionDescriptorChangeProvider>(DynamicActionDescriptorChangeProvider.Instance);
 

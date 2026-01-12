@@ -18,10 +18,10 @@ public class HomeController : ControllerBase
 		});
 	}
 
-	[HttpGet("[action]")]
-	public Task<Res> GetList(CancellationToken token)
+	[HttpPost("[action]")]
+	public Task<Res> GetList(Req req, CancellationToken token)
 	{
-		var list = Enumerable.Range(0, 1_000_000).Select(i => new TestResponse
+		var list = Enumerable.Range(0, req.Count).Select(i => new TestResponse
 		{
 			Response = $"{i}",
 		}).ToList();
@@ -44,6 +44,11 @@ public class HomeController : ControllerBase
 			Header = $"1",
 			Response = $"1",
 		});
+	}
+	
+	public class Req
+	{
+		public int Count { get; set; }
 	}
 
 	public class Res

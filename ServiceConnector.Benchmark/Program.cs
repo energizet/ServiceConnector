@@ -59,14 +59,14 @@ public class JsonDeserializationBenchmark
 	{
 		return System.Text.Json.JsonSerializer.Deserialize<UserDto>(_jsonString)!;
 	}
-	
+
 	[Benchmark(Description = "Sys.Text.Json Stream (Reflection)")]
 	[BenchmarkCategory("Microsoft")]
 	public async Task<UserDto> SystemTextJson_Stream_Reflection()
 	{
 		return (await System.Text.Json.JsonSerializer.DeserializeAsync<UserDto>(GetStream()))!;
 	}
-	
+
 	[Benchmark(Description = "Sys.Text.Json Stream (SourceGen)")]
 	[BenchmarkCategory("Microsoft")]
 	public async Task<UserDto> SystemTextJson_Stream_SourceGen()
@@ -99,7 +99,7 @@ public class JsonDeserializationBenchmark
 	{
 		return SpanJson.JsonSerializer.Generic.Utf16.Deserialize<UserDto>(_jsonString);
 	}
-	
+
 	[Benchmark(Description = "SpanJson Stream")]
 	[BenchmarkCategory("Alternative")]
 	public async Task<UserDto> SpanJson_Stream()
@@ -138,24 +138,49 @@ public class ApiBenchmark
 
 	private const string DirectGetUrl = "http://localhost:5158/api/GetList";
 	private const string PostUrl = "http://localhost:5000/api/get-list";
+	private const string PostOptimizedUrl = "http://localhost:5000/api/get-list-optimize";
 
-	private static StringContent Content = new("{}", Encoding.UTF8, "application/json");
+	// 1. Определяем параметры, которые будут меняться
+	[Params(1, 1000, 1_000_000)]
+	public int Count { get; set; }
+
+	// Переменная для хранения текущего контента
+	private StringContent _content = null!;
+
+	// 2. Метод Setup запускается один раз перед серией тестов для конкретного параметра
+	[GlobalSetup]
+	public void Setup()
+	{
+		// Генерируем JSON динамически на основе Count
+		var jsonPayload = $"{{\"count\": {Count}}}";
+
+		// Создаем StringContent. 
+		// Важно: создаем его здесь, чтобы не замерять время создания объекта в самом тесте,
+		// если цель - замерить только HTTP запрос.
+		_content = new(jsonPayload, Encoding.UTF8, "application/json");
+	}
 
 	// 1. GET (Direct)
 	[Benchmark(Baseline = true)]
 	public async Task<string> DirectGet()
 	{
-		return await client.GetStringAsync(DirectGetUrl);
+		using var response = await client.PostAsync(DirectGetUrl, _content);
+		return await response.Content.ReadAsStringAsync();
 	}
 
-	// 3. POST (Service List)
+	// 2. POST (Service List)
 	[Benchmark]
 	public async Task<string> PostService()
 	{
-		// Отправляем запрос
-		using var response = await client.PostAsync(PostUrl, Content);
+		using var response = await client.PostAsync(PostUrl, _content);
+		return await response.Content.ReadAsStringAsync();
+	}
 
-		// Читаем тело ответа как строку (чтобы тип возврата совпадал с другими тестами)
+	// 3. POST (Service List) Optimized
+	[Benchmark]
+	public async Task<string> PostOptimizedService()
+	{
+		using var response = await client.PostAsync(PostOptimizedUrl, _content);
 		return await response.Content.ReadAsStringAsync();
 	}
 }

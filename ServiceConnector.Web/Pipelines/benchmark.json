@@ -2,14 +2,20 @@
   {
     "RequestId": "get-list",
     "Request": {
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "number"
+        }
+      }
     },
     "Pipeline": [
       {
         "Type": "HttpRequest",
         "Id": "GetList",
-        "Method": "GET",
+        "Method": "POST",
         "Url": "http://localhost:5158/api/GetList",
+        "Data": "$request",
         "Response": {
           "type": "object",
           "properties": {
