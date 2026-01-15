@@ -4,14 +4,12 @@ using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Running;
 
-BenchmarkRunner.Run<ApiBenchmark>();
+BenchmarkRunner.Run<FieldPropertyBenchmark2>();
 
 // Атрибут для генератора кода System.Text.Json (Шаг оптимизации №1)
 [JsonSerializable(typeof(UserDto))]
 [JsonSerializable(typeof(List<UserDto>))]
-internal partial class MyJsonContext : JsonSerializerContext
-{
-}
+internal partial class MyJsonContext : JsonSerializerContext;
 
 // Конфигурация теста (выделяем память, смотрим среднее время)
 [MemoryDiagnoser]
@@ -138,10 +136,12 @@ public class ApiBenchmark
 
 	private const string DirectGetUrl = "http://localhost:5158/api/GetList";
 	private const string PostUrl = "http://localhost:5000/api/get-list";
-	private const string PostOptimizedUrl = "http://localhost:5000/api/get-list-optimize";
+	private const string PostAltUrl = "http://localhost:5246/api/GetList";
+	private const string KrakenDUrl = "http://localhost:8080/api/GetList";
 
 	// 1. Определяем параметры, которые будут меняться
 	[Params(1, 1000, 1_000_000)]
+	//[Params(1_000_000)]
 	public int Count { get; set; }
 
 	// Переменная для хранения текущего контента
@@ -162,7 +162,7 @@ public class ApiBenchmark
 
 	// 1. GET (Direct)
 	[Benchmark(Baseline = true)]
-	public async Task<string> DirectGet()
+	public async Task<string> Direct()
 	{
 		using var response = await client.PostAsync(DirectGetUrl, _content);
 		return await response.Content.ReadAsStringAsync();
@@ -170,17 +170,24 @@ public class ApiBenchmark
 
 	// 2. POST (Service List)
 	[Benchmark]
-	public async Task<string> PostService()
+	public async Task<string> Service()
 	{
 		using var response = await client.PostAsync(PostUrl, _content);
 		return await response.Content.ReadAsStringAsync();
 	}
 
-	// 3. POST (Service List) Optimized
+	// 3. POST (Service List) Alt
 	[Benchmark]
-	public async Task<string> PostOptimizedService()
+	public async Task<string> Alternative()
 	{
-		using var response = await client.PostAsync(PostOptimizedUrl, _content);
+		using var response = await client.PostAsync(PostAltUrl, _content);
+		return await response.Content.ReadAsStringAsync();
+	}
+
+	[Benchmark]
+	public async Task<string> KrakenD()
+	{
+		using var response = await client.PostAsync(KrakenDUrl, _content);
 		return await response.Content.ReadAsStringAsync();
 	}
 }
