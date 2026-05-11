@@ -22,7 +22,7 @@ public abstract class BaseJob<T, TRunner>(T config, bool isAsync) : IJob
 	public T Config => config;
 	public string Id => Config.Id;
 	public bool IsAsync => isAsync;
-	public ILinker Linker { get; set; }
+	public required ILinker Linker { get; set; }
 	public abstract Task<Type> Compile(TypesStore types, CancellationToken cancellationToken);
 
 	private string DebuggerDisplay()

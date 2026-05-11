@@ -1,5 +1,64 @@
 [
   {
+    "RequestId": "test2-request",
+    "Pipeline": [
+      {
+        "Type": "HttpRequest",
+        "Id": "TestGet",
+        "Method": "GET",
+        "Url": "http://localhost:5158/api/GetMultiType",
+        "Response": {
+          "type": "object",
+          "properties": {
+            "Int32": { "type": "integer" },
+            "Long32": { "type": "number" },
+            "Float32": { "type": "number" },
+            "Double64": { "type": "number" },
+            "Decimal64": { "type": "number" },
+            "String": { "type": "string" },
+            "Char": { "type": "string" },
+            "DateTime": { "type": "datetime" },
+            "StringArray": { "type": "array", "items": { "type": "string" } },
+            "IntArray": { "type": "array", "items": { "type": "integer" } }
+          }
+        }
+      },
+      {
+        "Type": "Object",
+        "Id": "array",
+        "Data": [
+          {"CInt32": "$testGet.Int32"},
+          {"CLong32": "$testGet.Long32"},
+          {"CFloat32": "$testGet.Float32"},
+          {"CDouble64": "$testGet.Double64"},
+          {"CDecimal64": "$testGet.Decimal64"},
+          {"CString": "$testGet.String"},
+          {"CChar": "$testGet.Char"},
+          {"CDateTime": "$testGet.DateTime"},
+          {"CStringArray": "$testGet.StringArray"},
+          {"CIntArray": "$testGet.IntArray"}
+        ]
+      },
+      {
+        "Type": "Mapping",
+        "Id": "mapping",
+        "Lists": ["$array"],
+        "Map": {
+          "MInt32": {"Request": "$testget.Int32", "Array": "$item.CInt32"},
+          "MLong32": {"Request": "$testget.Long32", "Array": "$item.CLong32"},
+          "MFloat32": {"Request": "$testget.Float32", "Array": "$item.CFloat32"},
+          "MDouble64": {"Request": "$testget.Double64", "Array": "$item.CDouble64"},
+          "MDecimal64": {"Request": "$testget.Decimal64", "Array": "$item.CDecimal64"},
+          "MString": {"Request": "$testget.String", "Array": "$item.CString"},
+          "MChar": {"Request": "$testget.Char", "Array": "$item.CChar"},
+          "MDateTime": {"Request": "$testget.DateTime", "Array": "$item.CDateTime"},
+          "MStringArray": {"Request": "$testget.StringArray", "Array": "$item.CStringArray"},
+          "MIntArray": {"Request": "$testget.IntArray", "Array": "$item.CIntArray"}
+        }
+      }
+    ]
+  },
+  {
     "RequestId": "test-request",
     "Request": {
       "type": "object",

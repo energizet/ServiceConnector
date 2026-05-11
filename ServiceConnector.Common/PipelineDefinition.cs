@@ -7,7 +7,7 @@ public class PipelineDefinition
 {
 	public bool IsEnable { get; init; } = true;
 	public required string RequestId { get; init; }
-	public required JsonElement Request { get; init; }
+	public JsonElement? Request { get; init; }
 	public required JsonElement[] Pipeline { get; init; }
 
 	public Type RequestType { get; set; } = null!;

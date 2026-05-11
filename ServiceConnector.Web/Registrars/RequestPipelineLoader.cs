@@ -56,7 +56,10 @@ public class RequestPipelineLoader(
 
 			var builder = new TypeBuilderFromSchema(new(loadContext, definition.RequestId));
 
-			definition.RequestType = builder.BuildType(definition.Request, definition.RequestId + "Request");
+			definition.RequestType = builder.BuildType(
+				definition.Request ?? JsonElement.Parse("""{"type":"object"}"""),
+				definition.RequestId + "Request"
+			);
 			definition.File = file;
 			definition.FileHash = hash;
 			definition.LoadContext = loadContext;
