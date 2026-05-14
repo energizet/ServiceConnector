@@ -1,5 +1,26 @@
 [
   {
+    "RequestId": "test-grpc-request",
+    "Pipeline": [
+      {
+        "Type": "GrpcRequest",
+        "Id": "TestGrpc",
+        "Url": "https://localhost:7028",
+        "Service": "GreeterService",
+        "Method": "SayHello",
+        "Data": {
+          "name": "asdqwe"
+        },
+        "Response": {
+          "type": "object",
+          "properties": {
+            "message": { "type": "string" }
+          }
+        }
+      }
+    ]
+  },
+  {
     "RequestId": "test2-request",
     "Pipeline": [
       {

@@ -8,9 +8,8 @@ namespace ServiceConnector.TypeBuilder;
 
 public sealed class LoadContextStore(AssemblyLoadContext loadContext) : IDisposable
 {
+	public HashSet<Assembly> StoredAssemblies = new();
 	public Dictionary<Assembly, MetadataReference> References { get; } = new();
-
-	private bool _isInitialized;
 
 	private readonly Lock _lock = new();
 
@@ -18,13 +17,17 @@ public sealed class LoadContextStore(AssemblyLoadContext loadContext) : IDisposa
 	{
 		lock (_lock)
 		{
-			if (_isInitialized)
+			var allAssemblies = AssemblyLoadContext.All
+				.SelectMany(x => x.Assemblies)
+				.Where(x => !StoredAssemblies.Contains(x))
+				.ToList();
+
+			foreach (var assembly in allAssemblies)
 			{
-				return;
+				StoredAssemblies.Add(assembly);
 			}
 
-			var assemblies = AssemblyLoadContext.All
-				.SelectMany(x => x.Assemblies)
+			var assemblies = allAssemblies
 				.Where(x => !References.ContainsKey(x))
 				.Where(x => !string.IsNullOrWhiteSpace(x.Location))
 				.Select(x => (assembly: x, stream: new MemoryStream(File.ReadAllBytes(x.Location))))
@@ -35,8 +38,6 @@ public sealed class LoadContextStore(AssemblyLoadContext loadContext) : IDisposa
 				References[assembly] = MetadataReference.CreateFromStream(stream);
 				stream.Dispose();
 			}
-
-			_isInitialized = true;
 		}
 	}
 

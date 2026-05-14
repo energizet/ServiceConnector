@@ -97,7 +97,7 @@ public class ServiceConnectorRegistrar(
 			var builder = ActivatorUtilities.CreateInstance<Jobs.TypeBuilder>(provider, factory);
 			var builderFromSchema = ActivatorUtilities.CreateInstance<TypeBuilderFromSchema>(provider, factory);
 
-			var job = jobBuilder.Create(definition.RequestId, element, definition, builder, builderFromSchema);
+			var job = jobBuilder.Create(definition.RequestId, element, definition, builder, builderFromSchema, factory);
 
 			job.Linker = graphBuilder.AddNode(job);
 

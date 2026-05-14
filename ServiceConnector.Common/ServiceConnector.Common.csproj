@@ -10,4 +10,11 @@
       <ProjectReference Include="..\ServiceConnector.TypeBuilder\ServiceConnector.TypeBuilder.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+        <PackageReference Include="protobuf-net.Grpc.AspNetCore" Version="1.2.2" />
+        <PackageReference Include="protobuf-net.Grpc.AspNetCore.Reflection" Version="1.2.2" />
+        <PackageReference Include="Grpc.AspNetCore.Server.Reflection" Version="2.66.0" />
+        <PackageReference Include="System.ServiceModel.Primitives" Version="10.0.652802" />
+    </ItemGroup>
+
 </Project>
