@@ -54,6 +54,25 @@ public sealed class LoadContextStore(AssemblyLoadContext loadContext) : IDisposa
 		return assembly;
 	}
 
+	public void Unload()
+	{
+		lock (_lock)
+		{
+			foreach (var (_, reference) in References)
+			{
+				if (reference is PortableExecutableReference portableExecutableReference)
+				{
+					portableExecutableReference.GetMetadata().Dispose();
+				}
+			}
+			
+			References.Clear();
+			StoredAssemblies.Clear();
+			
+			loadContext.Unload();
+		}
+	}
+
 	private static void ThrowIfError(EmitResult result)
 	{
 		if (result.Success)
