@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Extensions.Options;
 using ServiceConnector.Common;
 using ServiceConnector.Jobs;
@@ -53,6 +54,13 @@ public class ServiceConnectorRegistrar(
 
 			try
 			{
+				var builder = new TypeBuilderFromSchema(new(definition.LoadContext, definition.RequestId));
+
+				definition.RequestType = builder.BuildType(
+					definition.Request ?? JsonElement.Parse("""{"type":"object"}"""),
+					definition.RequestId + "Request"
+				);
+
 				var (runner, resultType) = await Compile(definition, cancellationToken);
 				definition.ControllerGenerator.AddMethod(requestId, definition.RequestType, resultType);
 				runnersStore[requestId] = runner;

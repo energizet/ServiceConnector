@@ -248,7 +248,7 @@ public class HttpRequestJob(
 		);
 
 		return builder.CreateLambda<DeserializerDelegate>(expression)
-			.Log($"{definition.RequestId}.{Id} {nameof(DeserializeStream)}", logger);
+			.Log($"{definition.RequestId}.{Id} {nameof(Deserialize)}", logger);
 	}
 
 	private static class DeserializerWrapper<T>

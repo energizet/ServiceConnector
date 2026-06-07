@@ -43,5 +43,13 @@ public partial class JobGraph
 
 			return new(firsts, _last);
 		}
+
+		public class EdgeLinker(Builder builder, IJob to) : ILinker
+		{
+			public void Link(string from)
+			{
+				builder.AddEdge(from, to);
+			}
+		}
 	}
 }

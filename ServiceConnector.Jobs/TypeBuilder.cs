@@ -59,7 +59,7 @@ public class TypeBuilder(AssemblyBuilderFactory factory, TypeFinder finder, Expr
 					classBuilder.CreateProperty(child.Name, child.ClrType, attributes: $"ProtoMember({i++})");
 				}
 
-				return builder.Build().First();
+				return data.ClrType = builder.Build().First();
 			}
 		}
 	}

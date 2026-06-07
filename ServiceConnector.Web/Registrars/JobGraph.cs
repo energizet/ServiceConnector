@@ -25,12 +25,4 @@ public partial class JobGraph(List<JobGraph.Node> firsts, JobGraph.Node? last) :
 			return $"{Job.GetType().Name}({Job.Id})";
 		}
 	}
-
-	public class EdgeLinker(Builder builder, IJob to) : ILinker
-	{
-		public void Link(string from)
-		{
-			builder.AddEdge(from, to);
-		}
-	}
 }
