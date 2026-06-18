@@ -3,9 +3,9 @@ using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc;
 using ProtoBuf.Grpc.Configuration;
 using ServiceConnector.Common;
+using ServiceConnector.Common.Interfaces;
 using ServiceConnector.TypeBuilder;
-using ServiceConnector.TypeBuilder.Expressions;
-using ServiceConnector.TypeBuilder.Interfaces;
+using ServiceConnector.Common.Extensions;
 using ServiceConnector.Web.Controllers;
 
 namespace ServiceConnector.Web.Registrars;

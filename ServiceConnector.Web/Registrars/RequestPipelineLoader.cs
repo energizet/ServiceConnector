@@ -4,7 +4,6 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ServiceConnector.Common;
-using ServiceConnector.Jobs;
 using ServiceConnector.TypeBuilder;
 
 namespace ServiceConnector.Web.Registrars;

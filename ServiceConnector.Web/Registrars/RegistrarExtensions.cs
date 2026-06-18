@@ -1,8 +1,4 @@
-using System.Collections;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-using ProtoBuf;
-using ProtoBuf.Grpc.Configuration;
 using ProtoBuf.Grpc.Server;
 using ServiceConnector.Common;
 using ServiceConnector.Jobs;

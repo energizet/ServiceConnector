@@ -10,12 +10,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServiceConnector.Common", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServiceConnector.Tests", "ServiceConnector.Tests\ServiceConnector.Tests.csproj", "{75563885-1E52-4EFA-BE86-569DB9F08BE7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServiceConnector.TestWeb", "ServiceConnector.TestWeb\ServiceConnector.TestWeb.csproj", "{77AEED55-FC8E-438A-9925-17DDD9B48D92}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServiceConnector.Benchmark", "ServiceConnector.Benchmark\ServiceConnector.Benchmark.csproj", "{A3EE9301-88CA-44E4-82F4-C2C6CD1EC00A}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServiceConnector.TestAlternative", "ServiceConnector.TestAlternative\ServiceConnector.TestAlternative.csproj", "{CC2F6776-11F4-4730-B279-FC5C0690C559}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -42,17 +36,5 @@ Global
 		{75563885-1E52-4EFA-BE86-569DB9F08BE7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{75563885-1E52-4EFA-BE86-569DB9F08BE7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{75563885-1E52-4EFA-BE86-569DB9F08BE7}.Release|Any CPU.Build.0 = Release|Any CPU
-		{77AEED55-FC8E-438A-9925-17DDD9B48D92}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{77AEED55-FC8E-438A-9925-17DDD9B48D92}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{77AEED55-FC8E-438A-9925-17DDD9B48D92}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{77AEED55-FC8E-438A-9925-17DDD9B48D92}.Release|Any CPU.Build.0 = Release|Any CPU
-		{A3EE9301-88CA-44E4-82F4-C2C6CD1EC00A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{A3EE9301-88CA-44E4-82F4-C2C6CD1EC00A}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{A3EE9301-88CA-44E4-82F4-C2C6CD1EC00A}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{A3EE9301-88CA-44E4-82F4-C2C6CD1EC00A}.Release|Any CPU.Build.0 = Release|Any CPU
-		{CC2F6776-11F4-4730-B279-FC5C0690C559}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{CC2F6776-11F4-4730-B279-FC5C0690C559}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{CC2F6776-11F4-4730-B279-FC5C0690C559}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{CC2F6776-11F4-4730-B279-FC5C0690C559}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

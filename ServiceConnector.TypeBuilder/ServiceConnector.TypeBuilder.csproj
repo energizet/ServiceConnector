@@ -7,7 +7,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
+      <ProjectReference Include="..\ServiceConnector.Common\ServiceConnector.Common.csproj" />
     </ItemGroup>
 
 </Project>

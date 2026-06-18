@@ -2,11 +2,11 @@ using System.Collections;
 using System.Linq.Expressions;
 using System.Text.Json;
 using ServiceConnector.Common;
-using ServiceConnector.TypeBuilder;
+using ServiceConnector.Common.Interfaces;
 
 namespace ServiceConnector.Jobs;
 
-public class TypeBuilder(AssemblyBuilderFactory factory, TypeFinder finder, ExpressionGeneratorFactory generator)
+public class TypeBuilder(IAssemblyBuilderFactory factory, TypeFinder finder, ExpressionGeneratorFactory generator)
 {
 	public Type BuildType(SchemaNode data, string typeName)
 	{

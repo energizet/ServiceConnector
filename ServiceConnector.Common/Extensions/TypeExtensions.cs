@@ -72,5 +72,22 @@ public static class TypeExtensions
 			result = type.To(findType);
 			return result != null;
 		}
+
+		public string ToDisplayString()
+		{
+			var nameSpace = type.Namespace;
+
+			var typeName = type.Name.Split('`')[0];
+
+			if (type.IsGenericType)
+			{
+				typeName = $"{typeName}<{string.Join(", ",
+					type.GetGenericArguments().Select(t => t.ToDisplayString()))}>";
+			}
+
+			return !string.IsNullOrWhiteSpace(nameSpace)
+				? $"{nameSpace}.{typeName}"
+				: typeName;
+		}
 	}
 }

@@ -2,12 +2,13 @@
 using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using ServiceConnector.TypeBuilder.Expressions;
-using ServiceConnector.TypeBuilder.Interfaces;
+using ServiceConnector.Common;
+using ServiceConnector.Common.Extensions;
+using ServiceConnector.Common.Interfaces;
 
 namespace ServiceConnector.TypeBuilder.Builders;
 
-public partial class AssemblyBuilder(string assemblyName, string ns, LoadContextStore loadContextStore)
+public partial class AssemblyBuilder(string assemblyName, string ns, ILoadContextStore loadContextStore)
 	: IAssemblyBuilder
 {
 	public string AssemblyName { get; } = IgnoredSymbolsRegex().Replace(assemblyName, "");

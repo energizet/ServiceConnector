@@ -54,7 +54,7 @@ public class ServiceConnectorRegistrar(
 
 			try
 			{
-				var builder = new TypeBuilderFromSchema(new(definition.LoadContext, definition.RequestId));
+				var builder = new TypeBuilderFromSchema(new AssemblyBuilderFactory(definition.LoadContext, definition.RequestId));
 
 				definition.RequestType = builder.BuildType(
 					definition.Request ?? JsonElement.Parse("""{"type":"object"}"""),

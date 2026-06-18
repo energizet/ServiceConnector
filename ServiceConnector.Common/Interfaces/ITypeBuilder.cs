@@ -1,12 +1,11 @@
 ﻿using System.Reflection;
-using ServiceConnector.TypeBuilder.Builders;
 
-namespace ServiceConnector.TypeBuilder.Interfaces;
+namespace ServiceConnector.Common.Interfaces;
 
 public interface ITypeBuilder
 {
     string Name { get; }
-    AssemblyBuilder AssemblyBuilder { get; }
+    IAssemblyBuilder AssemblyBuilder { get; }
     Type? BuiltType { get; }
     
     string Build();

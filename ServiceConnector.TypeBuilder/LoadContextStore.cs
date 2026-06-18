@@ -3,13 +3,14 @@ using System.Runtime.Loader;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Emit;
+using ServiceConnector.Common;
 
 namespace ServiceConnector.TypeBuilder;
 
-public sealed class LoadContextStore(AssemblyLoadContext loadContext) : IDisposable
+public sealed class LoadContextStore(AssemblyLoadContext loadContext) : ILoadContextStore
 {
-	public HashSet<Assembly> StoredAssemblies = new();
-	public Dictionary<Assembly, MetadataReference> References { get; } = new();
+	private readonly HashSet<Assembly> _storedAssemblies = [];
+	public Dictionary<Assembly, MetadataReference> References { get; } = [];
 
 	private readonly Lock _lock = new();
 
@@ -19,12 +20,12 @@ public sealed class LoadContextStore(AssemblyLoadContext loadContext) : IDisposa
 		{
 			var allAssemblies = AssemblyLoadContext.All
 				.SelectMany(x => x.Assemblies)
-				.Where(x => !StoredAssemblies.Contains(x))
+				.Where(x => !_storedAssemblies.Contains(x))
 				.ToList();
 
 			foreach (var assembly in allAssemblies)
 			{
-				StoredAssemblies.Add(assembly);
+				_storedAssemblies.Add(assembly);
 			}
 
 			var assemblies = allAssemblies
@@ -67,7 +68,7 @@ public sealed class LoadContextStore(AssemblyLoadContext loadContext) : IDisposa
 			}
 			
 			References.Clear();
-			StoredAssemblies.Clear();
+			_storedAssemblies.Clear();
 			
 			loadContext.Unload();
 		}

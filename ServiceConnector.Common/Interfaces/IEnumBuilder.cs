@@ -1,4 +1,4 @@
-﻿namespace ServiceConnector.TypeBuilder.Interfaces;
+﻿namespace ServiceConnector.Common.Interfaces;
 
 public interface IEnumBuilder : ITypeBuilder
 {

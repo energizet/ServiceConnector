@@ -1,13 +1,13 @@
 using System.Reflection;
 using System.Text.RegularExpressions;
-using ServiceConnector.TypeBuilder.Interfaces;
+using ServiceConnector.Common.Interfaces;
 
 namespace ServiceConnector.TypeBuilder.Builders;
 
 public abstract partial class BaseTypeBuilder(string name, AssemblyBuilder assemblyBuilder) : ITypeBuilder
 {
 	public string Name { get; } = NameRegex().Replace($"{name}Dynamic", "_");
-	public AssemblyBuilder AssemblyBuilder => assemblyBuilder;
+	public IAssemblyBuilder AssemblyBuilder => assemblyBuilder;
 	public Type? BuiltType { get; private set; }
 
 	public abstract string Build();

@@ -1,3 +1,4 @@
+extern alias protobuf;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.ServiceModel;
@@ -6,12 +7,14 @@ using Grpc.Core;
 using Grpc.Net.Client;
 using Grpc.Reflection.V1Alpha;
 using Microsoft.Extensions.Logging;
-using ProtoBuf;
 using ProtoBuf.Grpc.Client;
 using ProtoBuf.Grpc.Configuration;
 using ServiceConnector.Common;
-using ServiceConnector.TypeBuilder;
-using ServiceConnector.TypeBuilder.Expressions;
+using ServiceConnector.Common.Extensions;
+using ServiceConnector.Common.Interfaces;
+using FileDescriptorSet = protobuf::Google.Protobuf.Reflection.FileDescriptorSet;
+using FileDescriptorProto = protobuf::Google.Protobuf.Reflection.FileDescriptorProto;
+using CSharpCodeGenerator = protobuf::ProtoBuf.Reflection.CSharpCodeGenerator;
 
 namespace ServiceConnector.Jobs.Jobs;
 
@@ -30,7 +33,7 @@ public class GrpcRequestJob(
 	GrpcRequestJobConfig config,
 	TypeBuilder typeBuilder,
 	TypeBuilderFromSchema typeBuilderFromSchema,
-	AssemblyBuilderFactory factory,
+	IAssemblyBuilderFactory factory,
 	ExpressionGeneratorFactory generator,
 	PipelineDefinition definition,
 	ILogger<GrpcRequestJob> logger
@@ -50,16 +53,12 @@ public class GrpcRequestJob(
 		_responseType = BuildResponseType();
 		GetData = BuildGetData(types).Compile();
 
-
-		var builder = factory.Create("IGreeterService")
-			.AddUsing("System.ServiceModel");
+		var builder = factory.Create("IGreeterService");
 
 		var interfaceBuilder = builder.CreateInterface("IGreeterService")
-				//.AddAttribute($"ServiceContract(Name = \"test.GreeterService\")")
-				.AddAttribute($"{typeof(ServiceContractAttribute).ToDisplayString()}(Name = \"test.GreeterService\")")
-			;
+			.AddAttribute($"{typeof(ServiceContractAttribute).ToDisplayString()}(Name = \"{Config.Service}\")");
 
-		interfaceBuilder.CreateMethod("SayHelloAsync", typeof(ValueTask<>).MakeGenericType(_responseType),
+		interfaceBuilder.CreateMethod(Config.Method, typeof(ValueTask<>).MakeGenericType(_responseType),
 		[
 			$"{_requestType.ToDisplayString()} request",
 			$"{typeof(CancellationToken).ToDisplayString()} cancellationToken"
@@ -68,26 +67,6 @@ public class GrpcRequestJob(
 		var inter = builder.Build().First();
 
 		GetClient = BuildGetClient(inter).Compile();
-
-		//var client = new ServerReflection.ServerReflectionClient(_channel);
-		//using var call = client.ServerReflectionInfo(cancellationToken: cancellationToken);
-
-		//await call.RequestStream.WriteAsync(new ServerReflectionRequest
-		//{
-		//	ListServices = "",
-		//}, cancellationToken);
-		//await call.ResponseStream.MoveNext(cancellationToken);
-		//var descriptorResponse = call.ResponseStream.Current;
-
-		//var serviceResponses = descriptorResponse.ListServicesResponse.Service.Select(response => response.Name);
-
-		//await call.RequestStream.WriteAsync(new ServerReflectionRequest
-		//{
-		//	FileContainingSymbol = serviceResponses.First(),
-		//}, cancellationToken);
-
-		//await call.ResponseStream.MoveNext(cancellationToken);
-		//descriptorResponse = call.ResponseStream.Current;
 
 		return _responseType;
 	}
@@ -139,9 +118,10 @@ public class GrpcRequestJobRunner(GrpcRequestJob job, PipelineStore store) : IRu
 		var client = job.GetClient();
 		var data = job.GetData(store);
 
-		var sayHello = client.GetType().GetRuntimeMethods().First(x=>x.Name=="IGreeterServiceDynamic.SayHelloAsync");
+		var sayHello = client.GetType().GetRuntimeMethods()
+			.First(x => x.Name == $"IGreeterServiceDynamic.{job.Config.Method}");
 		var response = sayHello.Invoke(client, [data, cancellationToken]);
-		
+
 		var res = response.GetType().GetProperty("Result").GetValue(response);
 
 		return Task.FromResult(res);

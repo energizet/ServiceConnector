@@ -6,7 +6,7 @@
         "Type": "GrpcRequest",
         "Id": "TestGrpc",
         "Url": "https://localhost:7028",
-        "Service": "GreeterService",
+        "Service": "test.GreeterService",
         "Method": "SayHello",
         "Data": {
           "name": "asdqwe"

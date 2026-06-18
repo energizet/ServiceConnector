@@ -1,9 +1,10 @@
-﻿using ServiceConnector.TypeBuilder.Builders;
-using ServiceConnector.TypeBuilder.Interfaces;
+﻿using ServiceConnector.Common;
+using ServiceConnector.Common.Interfaces;
+using ServiceConnector.TypeBuilder.Builders;
 
 namespace ServiceConnector.TypeBuilder;
 
-public class AssemblyBuilderFactory(LoadContextStore loadContextStore, string? ns = null)
+public class AssemblyBuilderFactory(ILoadContextStore loadContextStore, string? ns = null) : IAssemblyBuilderFactory
 {
 	public IAssemblyBuilder Create(string assemblyName)
 	{

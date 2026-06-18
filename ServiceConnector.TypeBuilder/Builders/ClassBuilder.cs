@@ -1,6 +1,6 @@
 ﻿using System.Reflection;
-using ServiceConnector.TypeBuilder.Expressions;
-using ServiceConnector.TypeBuilder.Interfaces;
+using ServiceConnector.Common.Interfaces;
+using ServiceConnector.Common.Extensions;
 
 namespace ServiceConnector.TypeBuilder.Builders;
 

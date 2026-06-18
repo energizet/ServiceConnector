@@ -3,10 +3,8 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using ServiceConnector.Common;
 using ServiceConnector.Common.Extensions;
 using ServiceConnector.Jobs;
-using ServiceConnector.TypeBuilder;
 
 namespace ServiceConnector.Web.Registrars;
 
@@ -126,7 +124,7 @@ public class JobBuilder(IServiceProvider provider)
 	}
 
 
-	private static LambdaExpression CreateFactory(Type type, params object[] arguments)
+	private static object[] CreateFactory(Type type, params object[] arguments)
 	{
 		var types = type
 			.GetConstructors()
@@ -135,29 +133,17 @@ public class JobBuilder(IServiceProvider provider)
 			.Select(x => x.ParameterType)
 			.ToHashSet();
 
-		var parameters = new List<ParameterExpression>();
-		var expressions = new List<Expression>();
-
-		for (var i = 0; i < arguments.Length; i++)
+		return arguments.Where(argument =>
 		{
-			var argument = arguments[i].GetType();
-			var param = Expression.Parameter(argument, $"argument_{i}");
-			parameters.Add(param);
-			if (types.Any(x => x.TryTo(argument, out _)))
-			{
-				expressions.Add(Expression.Convert(param, typeof(object)));
-			}
-		}
-
-		var newArray = Expression.NewArrayInit(typeof(object), expressions);
-
-		return Expression.Lambda(newArray, parameters);
+			var argumentType = argument.GetType();
+			return types.Any(x => argumentType.TryTo(x, out _));
+		}).ToArray();
 	}
 
 	private static object CreateInstance(IServiceProvider provider, Type type, params object[] arguments)
 	{
-		var factory = CreateFactory(type, arguments).Compile();
+		arguments = CreateFactory(type, arguments);
 
-		return ActivatorUtilities.CreateInstance(provider, type, factory.DynamicInvoke(arguments) as object[] ?? []);
+		return ActivatorUtilities.CreateInstance(provider, type, arguments);
 	}
 }

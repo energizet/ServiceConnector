@@ -1,13 +1,11 @@
 using System.Text;
 using System.Text.Json;
-using ServiceConnector.Common;
 using ServiceConnector.Common.Extensions;
-using ServiceConnector.TypeBuilder;
-using ServiceConnector.TypeBuilder.Interfaces;
+using ServiceConnector.Common.Interfaces;
 
 namespace ServiceConnector.Jobs;
 
-public class TypeBuilderFromSchema(AssemblyBuilderFactory factory)
+public class TypeBuilderFromSchema(IAssemblyBuilderFactory factory)
 {
 	public Type BuildType(JsonElement data, string name)
 	{
