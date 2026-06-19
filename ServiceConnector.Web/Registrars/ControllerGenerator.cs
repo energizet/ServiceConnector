@@ -77,8 +77,7 @@ public sealed partial class ControllerGenerator : IIControllerGenerator
 
 	public Assembly Generate()
 	{
-		_httpBuilder.AssemblyBuilder.Build();
-		return _httpBuilder.AssemblyBuilder.BuiltAssembly!;
+		return _httpBuilder.AssemblyBuilder.Build().BuiltAssembly!;
 	}
 
 	[GeneratedRegex("\\W")]

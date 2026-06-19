@@ -13,9 +13,12 @@ public partial class AssemblyBuilder(string assemblyName, string ns, ILoadContex
 {
 	public string AssemblyName { get; } = IgnoredSymbolsRegex().Replace(assemblyName, "");
 	public Assembly? BuiltAssembly { get; private set; }
-	private readonly string _namespace = IgnoredSymbolsRegex().Replace(ns, "");
+	public readonly string Namespace = IgnoredSymbolsRegex().Replace(ns, "");
 	private readonly List<ITypeBuilder> _typeBuilders = [];
 	private readonly HashSet<string> _usings = [];
+	private List<string> _sources = [""];
+
+	public List<Type>? Types { get; private set; }
 
 	public IAssemblyBuilder AddUsing(string @using)
 	{
@@ -88,7 +91,18 @@ public partial class AssemblyBuilder(string assemblyName, string ns, ILoadContex
 		return enumBuilder;
 	}
 
-	public List<Type> Build()
+	public IAssemblyBuilder AddRaw(string raw)
+	{
+		_sources.Add(raw);
+		return this;
+	}
+
+	public Type? GetType(string fullName)
+	{
+		return BuiltAssembly?.GetType(fullName);
+	}
+
+	public IAssemblyBuilder Build()
 	{
 		loadContextStore.Initialize();
 
@@ -97,22 +111,31 @@ public partial class AssemblyBuilder(string assemblyName, string ns, ILoadContex
 		var source = $$"""
 		               {{string.Join("\n", _usings.OrderBy(x => x).Select(x => $"using {x};"))}}
 
-		               namespace {{_namespace}};
+		               namespace {{Namespace}};
 
 		               {{string.Join("\n\n", _typeBuilders.Select(x => x.Build()))}}
 		               """;
-		var syntax = CSharpSyntaxTree.ParseText(source);
+		_sources[0] = source;
+
+		if (_typeBuilders.Count == 0)
+		{
+			_sources = _sources.Skip(1).ToList();
+		}
+
+		var syntaxes = _sources.Select(x => CSharpSyntaxTree.ParseText(x));
 
 		var options = new CSharpCompilationOptions(
 			OutputKind.DynamicallyLinkedLibrary,
 			optimizationLevel: OptimizationLevel.Release
 		);
 
-		var compilation = CSharpCompilation.Create($"{AssemblyName}GenAssembly", [syntax], refs, options);
+		var compilation = CSharpCompilation.Create($"{AssemblyName}GenAssembly", syntaxes, refs, options);
 
 		BuiltAssembly = loadContextStore.Load(compilation);
 
-		return _typeBuilders.Select(builder => builder.SaveType(BuiltAssembly, _namespace)).ToList();
+		Types = _typeBuilders.Select(builder => builder.SaveType()).ToList();
+
+		return this;
 	}
 
 	[GeneratedRegex(@"\W")]

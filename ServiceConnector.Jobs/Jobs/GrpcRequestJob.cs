@@ -1,20 +1,22 @@
 extern alias protobuf;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.ServiceModel;
 using System.Text.Json;
+using Google.Protobuf;
+using Google.Protobuf.Collections;
 using Grpc.Core;
 using Grpc.Net.Client;
 using Grpc.Reflection.V1Alpha;
 using Microsoft.Extensions.Logging;
+using protobuf::Google.Protobuf.Reflection;
+using protobuf::ProtoBuf.Reflection;
+using ProtoBuf.Grpc;
 using ProtoBuf.Grpc.Client;
 using ProtoBuf.Grpc.Configuration;
 using ServiceConnector.Common;
 using ServiceConnector.Common.Extensions;
 using ServiceConnector.Common.Interfaces;
-using FileDescriptorSet = protobuf::Google.Protobuf.Reflection.FileDescriptorSet;
-using FileDescriptorProto = protobuf::Google.Protobuf.Reflection.FileDescriptorProto;
-using CSharpCodeGenerator = protobuf::ProtoBuf.Reflection.CSharpCodeGenerator;
+using ServiceConnector.Jobs.Extensions;
 
 namespace ServiceConnector.Jobs.Jobs;
 
@@ -25,7 +27,6 @@ public class GrpcRequestJobConfig : BaseJobConfig
 	public required string Method { get; init; }
 
 	public required JsonElement Data { get; set; }
-	public required JsonElement Response { get; set; }
 }
 
 [PipelineJob]
@@ -46,50 +47,111 @@ public class GrpcRequestJob(
 	public Func<PipelineStore, object?> GetData { get; private set; } = null!;
 	public Func<object> GetClient { get; private set; } = null!;
 
+	public Func<object, object?, CancellationToken, ValueTask<object?>> Send { get; private set; } = null!;
+
 	public override async Task<Type> Compile(TypesStore types, CancellationToken cancellationToken)
 	{
 		_channel = GrpcChannel.ForAddress(Config.Url);
 
-		_responseType = BuildResponseType();
+		var protoFiles = await GetProtoFiles(cancellationToken);
+		var serviceType = BuildService(protoFiles);
+
+		var method = serviceType.GetMethods().First(x => x.Name.StartsWith(Config.Method));
+		var requestType = method.GetParameters().First().ParameterType;
+		var responseType = method.ReturnType;
+
+		if (requestType.TryTo(typeof(IAsyncEnumerable<>), out _))
+		{
+			throw new Exception("Streaming doesnt support");
+		}
+
+		if (method.ReturnType.TryTo(typeof(IAsyncEnumerable<>), out _))
+		{
+			throw new Exception("Streaming doesnt support");
+		}
+
+		if (requestType.TryTo(typeof(CallContext), out _))
+		{
+			requestType = typeof(void);
+		}
+
+		if (responseType.TryTo(typeof(ValueTask), out _))
+		{
+			responseType = typeof(void);
+		}
+
+		if (responseType.TryTo(typeof(ValueTask<>), out var valueTask))
+		{
+			responseType = valueTask.GetGenericArguments().First();
+		}
+
+		_requestType = requestType;
+		_responseType = responseType;
+
 		GetData = BuildGetData(types).Compile();
-
-		var builder = factory.Create("IGreeterService");
-
-		var interfaceBuilder = builder.CreateInterface("IGreeterService")
-			.AddAttribute($"{typeof(ServiceContractAttribute).ToDisplayString()}(Name = \"{Config.Service}\")");
-
-		interfaceBuilder.CreateMethod(Config.Method, typeof(ValueTask<>).MakeGenericType(_responseType),
-		[
-			$"{_requestType.ToDisplayString()} request",
-			$"{typeof(CancellationToken).ToDisplayString()} cancellationToken"
-		]);
-
-		var inter = builder.Build().First();
-
-		GetClient = BuildGetClient(inter).Compile();
+		GetClient = BuildGetClient(serviceType).Compile();
+		Send = BuildSend(serviceType, method).Compile();
 
 		return _responseType;
 	}
 
-	private Type BuildResponseType()
+	private async Task<RepeatedField<ByteString>> GetProtoFiles(CancellationToken cancellationToken)
 	{
-		return typeBuilderFromSchema.BuildType(Config.Response, $"{definition.RequestId}_{Id}");
+		var client = new ServerReflection.ServerReflectionClient(_channel);
+		using var call = client.ServerReflectionInfo(cancellationToken: cancellationToken);
+
+		await call.RequestStream.WriteAsync(new ServerReflectionRequest
+		{
+			FileContainingSymbol = Config.Service,
+		}, cancellationToken);
+
+		await call.ResponseStream.MoveNext(cancellationToken);
+		var response = call.ResponseStream.Current;
+
+		await call.RequestStream.CompleteAsync();
+
+		if (response.MessageResponseCase == ServerReflectionResponse.MessageResponseOneofCase.ErrorResponse)
+		{
+			throw new Exception($"Reflection error: {response.ErrorResponse.ErrorMessage}");
+		}
+
+		var rawDescriptors = response.FileDescriptorResponse.FileDescriptorProto;
+		return rawDescriptors;
 	}
 
-	private Expression<Func<PipelineStore, object?>> BuildGetData(TypesStore types)
+	private Type BuildService(RepeatedField<ByteString> protoFiles)
 	{
-		var builder = generator.Create(Linker);
+		var set = new FileDescriptorSet();
 
-		var store = builder.CreateParameter(typeof(PipelineStore), "store");
+		foreach (var protoFile in protoFiles)
+		{
+			using var ms = new MemoryStream(protoFile.ToByteArray());
 
-		Expression value = Expression.Constant(null, typeof(object));
+			var fdp = ProtoBuf.Serializer.Deserialize<FileDescriptorProto>(ms);
+			fdp.IncludeInOutput = true;
+			fdp.ApplyImports();
+			set.Files.Add(fdp);
+		}
 
-		var schema = typeBuilder.GetSchema(types, Config.Data);
-		_requestType = typeBuilder.BuildType(schema, $"{definition.RequestId}_{Id}_data");
-		value = typeBuilder.BuildObject(types, schema, _requestType, store, Linker);
+		set.ApplyFileDependencyOrder();
+		set.Process();
 
-		return builder.CreateLambda<Func<PipelineStore, object?>>(value)
-			.Log($"{definition.RequestId}.{Id} {nameof(GetData)}", logger);
+		var files = CSharpCodeGenerator.Default.Generate(set, options: new()
+		{
+			{ "services", "grpc" },
+			{ "langver", "14" },
+		});
+
+		var builder = factory.Create(Config.Service + Random.Shared.Next());
+
+		foreach (var file in files)
+		{
+			builder.AddRaw(file.Text);
+		}
+
+		var serviceType = builder.Build().BuiltAssembly!.GetTypes()
+			.First(t => t.GetCustomAttributes<ServiceAttribute>(inherit: false).Any(x => x.Name == Config.Service));
+		return serviceType;
 	}
 
 	private Expression<Func<object>> BuildGetClient(Type serviceType)
@@ -107,48 +169,58 @@ public class GrpcRequestJob(
 			Expression.Convert(Expression.Constant(null), typeof(ClientFactory))
 		);
 
-		return Expression.Lambda<Func<object>>(methodCallExpression);
+		return Expression.Lambda<Func<object>>(methodCallExpression)
+			.Log($"{definition.RequestId}.{Id} {nameof(GetClient)}", logger);
+	}
+
+	private Expression<Func<PipelineStore, object?>> BuildGetData(TypesStore types)
+	{
+		var builder = generator.Create(Linker);
+
+		var store = builder.CreateParameter(typeof(PipelineStore), "store");
+
+		var schema = typeBuilder.GetSchema(types, Config.Data);
+		var value = typeBuilder.BuildObject(types, schema, _requestType, store, Linker);
+
+		return builder.CreateLambda<Func<PipelineStore, object?>>(value)
+			.Log($"{definition.RequestId}.{Id} {nameof(GetData)}", logger);
+	}
+
+	private Expression<Func<object, object?, CancellationToken, ValueTask<object?>>> BuildSend(Type serviceType,
+		MethodInfo method)
+	{
+		var builder = generator.Create(Linker);
+
+		var client = builder.CreateParameter(typeof(object), "client");
+		var data = builder.CreateParameter(typeof(object), "data");
+		var cancellationToken = builder.CreateParameter(typeof(CancellationToken), "cancellationToken");
+
+		var dataVar = builder.CreateVariable(Expression.Convert(data, _requestType), "data");
+		var clientVar = builder.CreateVariable(Expression.Convert(client, serviceType), "client");
+
+		var result = builder.CreateVariable(Expression.Call(clientVar, method, dataVar,
+			Expression.Convert(cancellationToken, typeof(CallContext))), "result", checkNull: false);
+
+		var value = Expression.Call(typeof(GrpcRequestJob), nameof(Await), [_responseType], result);
+
+		return builder.CreateLambda<Func<object, object?, CancellationToken, ValueTask<object?>>>(value)
+			.Log($"{definition.RequestId}.{Id} {nameof(Send)}", logger);
+	}
+
+	private static async ValueTask<object?> Await<T>(ValueTask<T> task)
+	{
+		return await task;
 	}
 }
 
 public class GrpcRequestJobRunner(GrpcRequestJob job, PipelineStore store) : IRunner
 {
-	public Task<object?> Run(CancellationToken cancellationToken)
+	public async Task<object?> Run(CancellationToken cancellationToken)
 	{
 		var client = job.GetClient();
 		var data = job.GetData(store);
+		var res = await job.Send(client, data, cancellationToken);
 
-		var sayHello = client.GetType().GetRuntimeMethods()
-			.First(x => x.Name == $"IGreeterServiceDynamic.{job.Config.Method}");
-		var response = sayHello.Invoke(client, [data, cancellationToken]);
-
-		var res = response.GetType().GetProperty("Result").GetValue(response);
-
-		return Task.FromResult(res);
+		return res;
 	}
 }
-/*
-// Определение сервиса
-[ServiceContract(Name = "test.GreeterService")] // Указываем оригинальное имя пакета и сервиса из proto
-public interface IGreeterService
-{
-	// Метод. Асинхронность обязательна для gRPC (Task или ValueTask)
-	ValueTask<HelloReply> SayHelloAsync(HelloRequest request, CancellationToken cancellationToken);
-}
-
-// Определение сообщения запроса
-[ProtoContract]
-public class HelloRequest
-{
-	[ProtoMember(1)] // Порядковый номер поля из proto (name = 1)
-	public string Name { get; set; } = string.Empty;
-}
-
-// Определение сообщения ответа
-[ProtoContract]
-public class HelloReply
-{
-	[ProtoMember(1)] // Порядковый номер поля из proto (message = 1)
-	public string Message { get; set; } = string.Empty;
-}
-/**/

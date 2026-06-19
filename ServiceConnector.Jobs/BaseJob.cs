@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using ServiceConnector.Common;
-using ServiceConnector.Jobs.Expressions;
+using ServiceConnector.Jobs.Extensions;
 
 namespace ServiceConnector.Jobs;
 

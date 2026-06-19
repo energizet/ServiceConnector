@@ -1,10 +1,11 @@
+extern alias protobuf;
 using System.Linq.Expressions;
 using ServiceConnector.Common;
 using ServiceConnector.Common.Extensions;
 
-namespace ServiceConnector.Jobs.Expressions;
+namespace ServiceConnector.Jobs.Extensions;
 
-internal static class TypeExpression
+internal static class TypeExtensions
 {
 	public static Expression<Func<IJob, PipelineStore, object[]>> CreateFactory(this Type type)
 	{

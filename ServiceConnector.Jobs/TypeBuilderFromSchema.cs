@@ -79,7 +79,7 @@ public class TypeBuilderFromSchema(IAssemblyBuilderFactory factory)
 
 				GenerateValidateMethod(classBuilder, required);
 
-				return builder.Build().First();
+				return builder.Build().Types!.First();
 			}
 			default:
 				throw new ArgumentException($"Unsupported schema type: {schemaType} ({name})");

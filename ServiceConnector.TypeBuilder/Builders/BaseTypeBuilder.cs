@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Text.RegularExpressions;
 using ServiceConnector.Common.Interfaces;
 
@@ -12,9 +11,9 @@ public abstract partial class BaseTypeBuilder(string name, AssemblyBuilder assem
 
 	public abstract string Build();
 
-	public Type SaveType(Assembly assembly, string namespaceName)
+	public Type SaveType()
 	{
-		return BuiltType = assembly.GetType($"{namespaceName}.{Name}")!;
+		return BuiltType ??= assemblyBuilder.GetType($"{assemblyBuilder.Namespace}.{Name}")!;
 	}
 
 	[GeneratedRegex("\\W")]

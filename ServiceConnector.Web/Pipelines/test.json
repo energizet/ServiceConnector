@@ -10,12 +10,15 @@
         "Method": "SayHello",
         "Data": {
           "name": "asdqwe"
-        },
-        "Response": {
-          "type": "object",
-          "properties": {
-            "message": { "type": "string" }
-          }
+        }
+      },
+      {
+        "Type": "Object",
+        "Id": "res",
+        "Data": {
+          "res": "$TestGrpc",
+          "message": "$TestGrpc.message",
+          "date": "$TestGrpc.timestamp"
         }
       }
     ]

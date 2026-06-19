@@ -59,7 +59,7 @@ public class TypeBuilder(IAssemblyBuilderFactory factory, TypeFinder finder, Exp
 					classBuilder.CreateProperty(child.Name, child.ClrType, attributes: $"ProtoMember({i++})");
 				}
 
-				return data.ClrType = builder.Build().First();
+				return data.ClrType = builder.Build().Types!.First();
 			}
 		}
 	}
@@ -119,7 +119,8 @@ public class TypeBuilder(IAssemblyBuilderFactory factory, TypeFinder finder, Exp
 
 				foreach (var child in data.Properties.Values)
 				{
-					var propertyInfo = resultType.GetProperty(child.Name)!;
+					var propertyInfo = resultType.GetProperties()
+						.First(x => string.Equals(x.Name, child.Name, StringComparison.CurrentCultureIgnoreCase));
 					memberBindings.Add(Expression.Bind(
 						propertyInfo,
 						BuildObject(types, child, propertyInfo.PropertyType, store, linker)
@@ -212,7 +213,7 @@ public class TypeBuilder(IAssemblyBuilderFactory factory, TypeFinder finder, Exp
 		builder.CreateMethod(nameof(IArray.StaticCount), typeof(int), "",
 			$"return {types.Count};", "public static");
 
-		return builder.AssemblyBuilder.Build().First();
+		return builder.AssemblyBuilder.Build().Types!.First();
 	}
 
 	public Expression BuildObject(TypesStore types, string data, ParameterExpression store, ILinker linker)

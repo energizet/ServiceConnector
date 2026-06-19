@@ -6,6 +6,7 @@ public interface IAssemblyBuilder
 {
 	string AssemblyName { get; }
 	Assembly? BuiltAssembly { get; }
+	List<Type>? Types { get; }
 
 	IAssemblyBuilder AddUsing(string @using);
 	IClassBuilder CreateClass(string name);
@@ -21,5 +22,8 @@ public interface IAssemblyBuilder
 
 	IEnumBuilder CreateEnum(string baseType, string name);
 
-	List<Type> Build();
+	IAssemblyBuilder AddRaw(string raw);
+	Type? GetType(string fullName);
+
+	IAssemblyBuilder Build();
 }

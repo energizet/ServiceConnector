@@ -1,6 +1,4 @@
-﻿using System.Reflection;
-
-namespace ServiceConnector.Common.Interfaces;
+﻿namespace ServiceConnector.Common.Interfaces;
 
 public interface ITypeBuilder
 {
@@ -9,5 +7,5 @@ public interface ITypeBuilder
     Type? BuiltType { get; }
     
     string Build();
-    Type SaveType(Assembly assembly, string namespaceName);
+    Type SaveType();
 }
