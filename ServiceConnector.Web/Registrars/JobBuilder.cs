@@ -135,7 +135,7 @@ public class JobBuilder(IServiceProvider provider)
 		return arguments.Where(argument =>
 		{
 			var argumentType = argument.GetType();
-			return types.Any(x => argumentType.TryTo(x, out _));
+			return types.Any(argumentType.CanTo);
 		}).ToArray();
 	}
 

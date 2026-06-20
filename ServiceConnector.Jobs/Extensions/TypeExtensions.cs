@@ -21,12 +21,12 @@ internal static class TypeExtensions
 
 		var expressions = new List<Expression>();
 
-		if (types.Any(x => x.TryTo(typeof(IJob), out _)))
+		if (types.Any(x => x.CanTo(typeof(IJob))))
 		{
 			expressions.Add(Expression.Convert(jobParam, typeof(object)));
 		}
 
-		if (types.Any(x => x.TryTo(typeof(PipelineStore), out _)))
+		if (types.Any(x => x.CanTo(typeof(PipelineStore))))
 		{
 			expressions.Add(Expression.Convert(storeParam, typeof(object)));
 		}

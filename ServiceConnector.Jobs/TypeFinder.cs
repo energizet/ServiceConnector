@@ -68,7 +68,7 @@ public class TypeFinder
 	{
 		if (type.TryTo(typeof(IDictionary<,>), out var map))
 		{
-			if (type.GenericTypeArguments[0].TryTo(typeof(int), out _) && !int.TryParse(name, out _))
+			if (type.GenericTypeArguments[0].CanTo(typeof(int)) && !int.TryParse(name, out _))
 			{
 				outType = null;
 				return false;
@@ -108,8 +108,8 @@ public class TypeFinder
 	private static Type MakeNullable(Type type)
 	{
 		if (
-			type.TryTo(typeof(ValueType), out _) &&
-			!type.TryTo(typeof(Nullable<>), out _)
+			type.CanTo(typeof(ValueType)) &&
+			!type.CanTo(typeof(Nullable<>))
 		)
 		{
 			return typeof(Nullable<>).MakeGenericType(type);

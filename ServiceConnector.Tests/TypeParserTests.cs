@@ -65,23 +65,28 @@ public class TypeParserTests
 		yield return ["    ", typeof(string), "    "];
 		yield return ["dict", typeof(string), "dict"];
 
-		yield return ["$dict", typeof(Dictionary<int, int>), Store.Get<Dictionary<int, int>>("dict")!];
-		yield return ["$dict.0", typeof(int?), Store.Get<Dictionary<int, int>>("dict")![0]];
-		yield return ["$dict.1", typeof(int?), Store.Get<Dictionary<int, int>>("dict")![1]];
+		yield return ["$dict", typeof(Dictionary<int, int>), Get<Dictionary<int, int>>("dict")!];
+		yield return ["$dict.0", typeof(int?), Get<Dictionary<int, int>>("dict")![0]];
+		yield return ["$dict.1", typeof(int?), Get<Dictionary<int, int>>("dict")![1]];
 		yield return ["$dict.2", typeof(int?), null];
 
-		yield return ["$dict2.0", typeof(TestObject), Store.Get<Dictionary<string, TestObject>>("dict2")!["0"]];
-		yield return ["$dict2.0.item0", typeof(int?), Store.Get<Dictionary<string, TestObject>>("dict2")!["0"].Item0];
-		yield return ["$dict2.0.item1", typeof(string), Store.Get<Dictionary<string, TestObject>>("dict2")!["0"].Item1];
+		yield return ["$dict2.0", typeof(TestObject), Get<Dictionary<string, TestObject>>("dict2")!["0"]];
+		yield return ["$dict2.0.item0", typeof(int?), Get<Dictionary<string, TestObject>>("dict2")!["0"].Item0];
+		yield return ["$dict2.0.item1", typeof(string), Get<Dictionary<string, TestObject>>("dict2")!["0"].Item1];
 		yield return ["$dict2.1.item0", typeof(int?), null];
 
-		yield return ["$list", typeof(List<int>), Store.Get<List<int>>("list")!];
-		yield return ["$list.0", typeof(int?), Store.Get<List<int>>("list")![0]];
+		yield return ["$list", typeof(List<int>), Get<List<int>>("list")!];
+		yield return ["$list.0", typeof(int?), Get<List<int>>("list")![0]];
 		yield return ["$list.1", typeof(int?), null];
 
-		yield return ["$arr", typeof(int[]), Store.Get<int[]>("arr")!];
-		yield return ["$arr.0", typeof(int?), Store.Get<int[]>("arr")![0]];
-		yield return ["$arr.1", typeof(int?), null]; 
+		yield return ["$arr", typeof(int[]), Get<int[]>("arr")!];
+		yield return ["$arr.0", typeof(int?), Get<int[]>("arr")![0]];
+		yield return ["$arr.1", typeof(int?), null];
+	}
+
+	private static T? Get<T>(string key)
+	{
+		return (T?)Store.Get(key);
 	}
 
 	[Theory]

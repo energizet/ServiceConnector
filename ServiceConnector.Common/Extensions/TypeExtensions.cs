@@ -58,7 +58,20 @@ public static class TypeExtensions
 			{
 				return type
 					.MeAndBaseClassesAndInterfaces()
-					.FirstOrDefault(item => item == findType);
+					.FirstOrDefault(item =>
+					{
+						if (item.IsByRef)
+						{
+							item = item.GetElementType()!;
+						}
+
+						if (findType.IsByRef)
+						{
+							findType = findType.GetElementType()!;
+						}
+						
+						return item == findType;
+					});
 			}
 
 			return type
@@ -70,6 +83,12 @@ public static class TypeExtensions
 		public bool TryTo(Type findType, [MaybeNullWhen(false)] out Type result)
 		{
 			result = type.To(findType);
+			return result != null;
+		}
+
+		public bool CanTo(Type findType)
+		{
+			var result = type.To(findType);
 			return result != null;
 		}
 

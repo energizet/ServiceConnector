@@ -22,6 +22,12 @@ public abstract class Store<T>(Store<T>? parentStore = null)
 		return value!;
 	}
 
+	public T? GetOrNull(string key)
+	{
+		TryGetValue(key, out var value);
+		return value;
+	}
+
 	public bool TryGetValue(string key, [MaybeNullWhen(false)] out T value)
 	{
 		if (_store.TryGetValue(key, out value))

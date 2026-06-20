@@ -55,25 +55,6 @@ public sealed class LoadContextStore(AssemblyLoadContext loadContext) : ILoadCon
 		return assembly;
 	}
 
-	public void Unload()
-	{
-		lock (_lock)
-		{
-			foreach (var (_, reference) in References)
-			{
-				if (reference is PortableExecutableReference portableExecutableReference)
-				{
-					portableExecutableReference.GetMetadata().Dispose();
-				}
-			}
-			
-			References.Clear();
-			_storedAssemblies.Clear();
-			
-			loadContext.Unload();
-		}
-	}
-
 	private static void ThrowIfError(EmitResult result)
 	{
 		if (result.Success)
@@ -108,6 +89,20 @@ public sealed class LoadContextStore(AssemblyLoadContext loadContext) : ILoadCon
 
 	public void Dispose()
 	{
-		References.Clear();
+		lock (_lock)
+		{
+			foreach (var (_, reference) in References)
+			{
+				if (reference is PortableExecutableReference portableExecutableReference)
+				{
+					portableExecutableReference.GetMetadata().Dispose();
+				}
+			}
+
+			References.Clear();
+			_storedAssemblies.Clear();
+
+			loadContext.Unload();
+		}
 	}
 }

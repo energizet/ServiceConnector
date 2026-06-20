@@ -60,22 +60,22 @@ public class GrpcRequestJob(
 		var requestType = method.GetParameters().First().ParameterType;
 		var responseType = method.ReturnType;
 
-		if (requestType.TryTo(typeof(IAsyncEnumerable<>), out _))
+		if (requestType.CanTo(typeof(IAsyncEnumerable<>)))
 		{
 			throw new Exception("Streaming doesnt support");
 		}
 
-		if (method.ReturnType.TryTo(typeof(IAsyncEnumerable<>), out _))
+		if (method.ReturnType.CanTo(typeof(IAsyncEnumerable<>)))
 		{
 			throw new Exception("Streaming doesnt support");
 		}
 
-		if (requestType.TryTo(typeof(CallContext), out _))
+		if (requestType.CanTo(typeof(CallContext)))
 		{
 			requestType = typeof(void);
 		}
 
-		if (responseType.TryTo(typeof(ValueTask), out _))
+		if (responseType.CanTo(typeof(ValueTask)))
 		{
 			responseType = typeof(void);
 		}

@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
 using ServiceConnector.Common;
@@ -24,30 +25,19 @@ public class ExpressionGenerator(ILinker linker)
 
 	public LambdaExpression GetValue(string value, TypesStore types)
 	{
+		var store = CreateParameter(typeof(PipelineStore), "store");
+
+		Expression result;
 		if (string.IsNullOrWhiteSpace(value) || value[0] is not '$')
 		{
-			return GetConstant(value);
+			result = CreateVariable(Expression.Constant(value), "constant");
+		}
+		else
+		{
+			result = MakeNullable(GetValue(value.AsSpan()[1..], types, store));
 		}
 
 		// TODO interpolation ${}
-		return GetValue(value.AsSpan()[1..], types);
-	}
-
-	private LambdaExpression GetConstant(string value)
-	{
-		CreateParameter(typeof(PipelineStore), "store");
-
-		var constant = CreateVariable(Expression.Constant(value), "constant");
-
-		return CreateLambda(constant);
-	}
-
-	private LambdaExpression GetValue(ReadOnlySpan<char> value, TypesStore types)
-	{
-		var store = CreateParameter(typeof(PipelineStore), "store");
-
-		var result = MakeNullable(GetValue(value, types, store));
-
 		return CreateLambda(result);
 	}
 
@@ -60,10 +50,13 @@ public class ExpressionGenerator(ILinker linker)
 		}
 
 		var variableName = value[..separator].ToString();
-		var type = types.Get(variableName);
+		if (!types.TryGetValue(variableName, out var type))
+		{
+			throw new ArgumentException($"Type {variableName} doesn't exist");
+		}
 
-		var expression = Expression.Call(store, "Get", [type], Expression.Constant(variableName));
-		var variable = CreateVariable(expression, variableName);
+		var call = Call(store, nameof(PipelineStore.GetOrNull), null, Expression.Constant(variableName));
+		var variable = CreateVariable(Expression.Convert(call, type), variableName);
 
 		linker.Link(variableName);
 
@@ -91,21 +84,31 @@ public class ExpressionGenerator(ILinker linker)
 	private ParameterExpression GetField(ReadOnlySpan<char> value, int separator, int i, Expression variable)
 	{
 		var name = value[(separator + 1)..i].ToString();
-		var field = GetField(variable, name);
+
+		if (!TryGetField(variable, name, out var field))
+		{
+			throw new ArgumentException($"Type {name} in {value[..separator]} doesn't exist");
+		}
 
 		return field;
 	}
 
-	private ParameterExpression GetField(Expression variable, string name)
+	private bool TryGetField(Expression variable, string name, [MaybeNullWhen(false)] out ParameterExpression outValue)
 	{
 		var type = variable.Type;
 
 		if (type.TryTo(typeof(IDictionary<,>), out var map))
 		{
 			var key = Expression.Constant(name);
-			if (map.GenericTypeArguments[0].TryTo(typeof(int), out _))
+			if (map.GenericTypeArguments[0].CanTo(typeof(int)))
 			{
-				key = Expression.Constant(int.Parse(name));
+				if (!int.TryParse(name, out var keyParsed))
+				{
+					outValue = null;
+					return false;
+				}
+
+				key = Expression.Constant(keyParsed);
 			}
 
 			var value = CreateVariable(map.GenericTypeArguments[1], "value");
@@ -117,13 +120,20 @@ public class ExpressionGenerator(ILinker linker)
 				CreateReturn()
 			));
 
-			return value;
+			outValue = value;
+			return true;
 		}
 
 		if (type.TryTo(typeof(IReadOnlyList<>), out var list))
 		{
+			if (!int.TryParse(name, out var indexParsed))
+			{
+				outValue = null;
+				return false;
+			}
+
 			variable = Expression.Convert(variable, list);
-			var index = Expression.Constant(int.Parse(name));
+			var index = Expression.Constant(indexParsed);
 			var collection = Expression.Convert(variable, list.To(typeof(IReadOnlyCollection<>))!);
 			var count = CreateVariable(Expression.PropertyOrField(collection, nameof(ICollection.Count)), "count");
 			Body.Add(Expression.IfThen(
@@ -134,7 +144,8 @@ public class ExpressionGenerator(ILinker linker)
 				CreateReturn()
 			));
 
-			return CreateVariable(Expression.Property(variable, "Item", index), $"Item_{name}");
+			outValue = CreateVariable(Expression.Property(variable, "Item", index), $"Item_{name}");
+			return true;
 		}
 
 		var fields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -149,12 +160,13 @@ public class ExpressionGenerator(ILinker linker)
 			fields.Add(field.Name, field.Name);
 		}
 
-		return CreateVariable(Expression.PropertyOrField(variable, fields[name]), name);
+		outValue = CreateVariable(Expression.PropertyOrField(variable, fields[name]), name);
+		return true;
 	}
 
 	public ParameterExpression CreateVariable(Expression value, string name, bool checkNull = true)
 	{
-		return AssignVariable(CreateVariable(value.Type, name), value,checkNull);
+		return AssignVariable(CreateVariable(value.Type, name), value, checkNull);
 	}
 
 	public void Assign(Expression left, Expression right)
@@ -189,6 +201,55 @@ public class ExpressionGenerator(ILinker linker)
 		Variables.Add(variable);
 
 		return variable;
+	}
+
+	private static MethodCallExpression Call(
+		Expression instance, string methodName,
+		Type[]? generics,
+		params Expression[]? arguments
+	)
+	{
+		var methods = instance.Type.GetMethods();
+
+		foreach (var m in methods)
+		{
+			var method = m;
+			if (method.Name != methodName)
+			{
+				continue;
+			}
+
+			var parameters = method.GetParameters();
+
+			var argumentsCount = arguments?.Length ?? 0;
+			if (argumentsCount != parameters.Length)
+			{
+				continue;
+			}
+
+			if (argumentsCount > 0 &&
+			    parameters.Select((p, i) => arguments![i].Type.CanTo(p.ParameterType)).Any(x => !x))
+			{
+				continue;
+			}
+
+			var genericArguments = method.GetGenericArguments();
+
+			var genericsCount = generics?.Length ?? 0;
+			if (genericsCount != genericArguments.Length)
+			{
+				continue;
+			}
+
+			if (genericsCount > 0)
+			{
+				method = method.MakeGenericMethod(generics!);
+			}
+
+			return Expression.Call(instance, method, arguments);
+		}
+
+		return Expression.Call(instance, methodName, generics, arguments);
 	}
 
 	public BlockExpression CreateBlock()
@@ -228,8 +289,8 @@ public class ExpressionGenerator(ILinker linker)
 	public static Expression MakeNullable(ParameterExpression variable)
 	{
 		if (
-			variable.Type.TryTo(typeof(ValueType), out _) &&
-			!variable.Type.TryTo(typeof(Nullable<>), out _)
+			variable.Type.CanTo(typeof(ValueType)) &&
+			!variable.Type.CanTo(typeof(Nullable<>))
 		)
 		{
 			var nullableType = typeof(Nullable<>).MakeGenericType(variable.Type);

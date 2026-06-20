@@ -9,5 +9,4 @@ public interface ILoadContextStore : IDisposable
 	Dictionary<Assembly, MetadataReference> References { get; }
 	void Initialize();
 	Assembly Load(CSharpCompilation compilation);
-	void Unload();
 }

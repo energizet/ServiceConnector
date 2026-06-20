@@ -89,8 +89,8 @@ public class TypeBuilderFromSchema(IAssemblyBuilderFactory factory)
 	private static Type MakeNullable(Type type)
 	{
 		if (
-			type.TryTo(typeof(ValueType), out _) &&
-			!type.TryTo(typeof(Nullable<>), out _)
+			type.CanTo(typeof(ValueType)) &&
+			!type.CanTo(typeof(Nullable<>))
 		)
 		{
 			return typeof(Nullable<>).MakeGenericType(type);
