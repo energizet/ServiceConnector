@@ -66,21 +66,6 @@ public class TypeFinder
 
 	private static bool TryGetField(Type type, string name, [MaybeNullWhen(false)] out Type outType)
 	{
-		if (type.TryTo(typeof(IArray), out _))
-		{
-			if (!int.TryParse(name, out var index) || index < 0)
-			{
-				outType = null;
-				return false;
-			}
-
-			outType = index < IArray.StaticCount(type)
-				? type.GetProperty($"Item_{index}")!.PropertyType
-				: type.GetProperty("Item_Others")!.PropertyType.GenericTypeArguments[0];
-
-			return true;
-		}
-
 		if (type.TryTo(typeof(IDictionary<,>), out var map))
 		{
 			if (type.GenericTypeArguments[0].TryTo(typeof(int), out _) && !int.TryParse(name, out _))

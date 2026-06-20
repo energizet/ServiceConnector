@@ -16,7 +16,6 @@ public class TypeParserTests
 		["dict2"] = typeof(Dictionary<string, TestObject>),
 		["list"] = typeof(List<int>),
 		["arr"] = typeof(int[]),
-		["IArray"] = typeof(TestArray),
 	};
 
 	private static readonly PipelineStore Store = new()
@@ -42,27 +41,7 @@ public class TypeParserTests
 		["arr"] = new int[]
 		{
 			4,
-		},
-		["IArray"] = new TestArray
-		{
-			Item_0 = 51,
-			Item_1 = "52",
-			Item_2 = new()
-			{
-				Item0 = 53,
-				Item1 = "54",
-				SomeField = "55",
-			},
-			Item_Others =
-			[
-				new()
-				{
-					Item0 = 56,
-					Item1 = "57",
-					SomeField = "58",
-				}
-			],
-		},
+		}
 	};
 
 	[Theory]
@@ -102,21 +81,11 @@ public class TypeParserTests
 
 		yield return ["$arr", typeof(int[]), Store.Get<int[]>("arr")!];
 		yield return ["$arr.0", typeof(int?), Store.Get<int[]>("arr")![0]];
-		yield return ["$arr.1", typeof(int?), null];
-
-		yield return ["$iArray", typeof(TestArray), Store.Get<TestArray>("IArray")!];
-		yield return ["$IArray.0", typeof(int?), Store.Get<TestArray>("IArray")!.Item_0];
-		yield return ["$IArray.1", typeof(string), Store.Get<TestArray>("IArray")!.Item_1];
-		yield return ["$IArray.2", typeof(TestObject), Store.Get<TestArray>("IArray")!.Item_2];
-		yield return ["$IArray.2.Item1", typeof(string), Store.Get<TestArray>("IArray")!.Item_2.Item1];
-		yield return ["$IArray.2.SomeField", typeof(string), Store.Get<TestArray>("IArray")!.Item_2.SomeField];
-		yield return ["$IArray.3.SomeField", typeof(string), Store.Get<TestArray>("IArray")!.Item_Others[0].SomeField];
+		yield return ["$arr.1", typeof(int?), null]; 
 	}
 
 	[Theory]
 	[InlineData("$some", "Type some doesn't exist")]
-	[InlineData("$IArray.2.Item2", "Type Item2 in IArray.2 doesn't exist")]
-	[InlineData("$IArray.2.Item2.Some", "Type Item2 in IArray.2 doesn't exist")]
 	public void FailTests(string path, string error)
 	{
 		try
@@ -130,56 +99,6 @@ public class TypeParserTests
 		}
 
 		Assert.Fail();
-	}
-
-	private class TestArray : IArray
-	{
-		public required int? Item_0 { get; set; }
-		public required string? Item_1 { get; set; }
-		public required TestObject? Item_2 { get; set; }
-		public required List<TestObject>? Item_Others { get; set; }
-
-		public int Count()
-		{
-			return StaticCount() + (Item_Others ?? []).Count;
-		}
-
-		public object? Get(int index)
-		{
-			if (index < 0 || index >= Count())
-			{
-				return null;
-			}
-
-			return index switch
-			{
-				0 => Item_0,
-				1 => Item_1,
-				2 => Item_2,
-				_ => (Item_Others ?? [])[index - StaticCount()],
-			};
-		}
-
-		public static bool IsOnlyStatic()
-		{
-			return false;
-		}
-
-		public static int StaticCount()
-		{
-			return 3;
-		}
-
-		public IEnumerator GetEnumerator()
-		{
-			yield return Item_0;
-			yield return Item_1;
-			yield return Item_2;
-			foreach (var other in Item_Others ?? [])
-			{
-				yield return other;
-			}
-		}
 	}
 
 	private class TestObject

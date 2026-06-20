@@ -37,17 +37,14 @@ public class MappingJob(
 		var store = builder.CreateParameter(typeof(PipelineStore), "store");
 
 		var lists = GetLists(types, store, builder).ToList();
-		var variables = GetVariablesList(lists).ToList();
-		var objects = GetObjectCreators(types, variables, store).ToList();
+		var variableTypes = GetVariablesList(lists).ToList();
+		var objectCreator = GetObjectCreator(types, variableTypes, store);
 
-		var arrayTypes = objects.Select(x => x.Type).ToList();
-		returnType = variables.All(x => x.IsOnlyStatic)
-			? typeBuilder.BuildArray($"{definition.RequestId}_{Id}", arrayTypes)
-			: typeBuilder.BuildArray($"{definition.RequestId}_{Id}", arrayTypes[..^1], arrayTypes[^1]);
+		returnType = typeof(List<>).MakeGenericType(objectCreator.Type);
 
 		var result = builder.CreateVariable(Expression.New(returnType), "result", checkNull: false);
 
-		var selector = CreateSelector(result, variables.Count, objects);
+		var selector = CreateSelector(result, variableTypes.Count, objectCreator);
 
 		builder.Body.Add(CreateLoop(store, builder, lists, selector));
 
@@ -79,40 +76,13 @@ public class MappingJob(
 		}
 	}
 
-	private IEnumerable<ListVariables> GetVariablesList(List<ParameterExpression> lists)
+	private IEnumerable<Type> GetVariablesList(List<ParameterExpression> lists)
 	{
-		for (var i = 0; i < lists.Count; i++)
+		foreach (var list in lists)
 		{
-			var list = lists[i];
-			if (list.Type.TryTo(typeof(IArray), out _))
-			{
-				var staticCount = IArray.StaticCount(list.Type);
-				var isOnlyStatic = IArray.IsOnlyStatic(list.Type);
-
-				var props = new List<Type>(staticCount);
-				for (var j = 0; j < staticCount; j++)
-				{
-					props.Add(list.Type.GetProperty($"Item_{j}")!.PropertyType);
-				}
-
-				var typeOther = list.Type.GetProperty("Item_Others")!.PropertyType.GenericTypeArguments[0];
-
-				yield return new()
-				{
-					Variables = props,
-					IsOnlyStatic = isOnlyStatic,
-					LastVariable = typeOther,
-				};
-				continue;
-			}
-
 			if (list.Type.TryTo(typeof(IEnumerable<>), out var enumerableType))
 			{
-				yield return new()
-				{
-					IsOnlyStatic = false,
-					LastVariable = enumerableType.GenericTypeArguments[0],
-				};
+				yield return enumerableType.GenericTypeArguments[0];
 				continue;
 			}
 
@@ -120,39 +90,24 @@ public class MappingJob(
 		}
 	}
 
-	private IEnumerable<Expression> GetObjectCreators(TypesStore types, List<ListVariables> listsVariables,
-		ParameterExpression store)
+	private Expression GetObjectCreator(TypesStore types, List<Type> variableTypes, ParameterExpression store)
 	{
-		var variables = listsVariables.Select(x => x.GetEnumerator()).ToList();
-		variables.ForEach(x => x.MoveNext());
-
 		types["index"] = typeof(int);
-		for (var i = 0;; i++)
+
+		types["item"] = variableTypes[0];
+		for (var j = 0; j < variableTypes.Count; j++)
 		{
-			var variablesTypes = variables.Select(x => x.Current).ToList();
-
-			types["item"] = variablesTypes[0].Variable;
-			for (var j = 0; j < variablesTypes.Count; j++)
-			{
-				types[$"item{j}"] = variablesTypes[j].Variable;
-			}
-
-			var schema = typeBuilder.GetSchema(types, Config.Map);
-			var type = typeBuilder.BuildType(schema, $"{definition.RequestId}_{Id}_{i}");
-			var value = typeBuilder.BuildObject(types, schema, type, store, Linker);
-			yield return value;
-
-			if (variablesTypes.All(x => x.IsLast))
-			{
-				break;
-			}
-
-			variables.ForEach(x => x.MoveNext());
+			types[$"item{j}"] = variableTypes[j];
 		}
+
+		var schema = typeBuilder.GetSchema(types, Config.Map);
+		var type = typeBuilder.BuildType(schema, $"{definition.RequestId}_{Id}");
+		var value = typeBuilder.BuildObject(types, schema, type, store, Linker);
+
+		return value;
 	}
 
-	private LambdaExpression CreateSelector(ParameterExpression result, int variablesCount,
-		List<Expression> objects)
+	private LambdaExpression CreateSelector(ParameterExpression result, int variablesCount, Expression objectCreator)
 	{
 		var builder = generator.Create(Linker);
 		var store = builder.CreateParameter(typeof(PipelineStore), "store");
@@ -180,57 +135,12 @@ public class MappingJob(
 			);
 		}
 
-		if (result.Type.TryTo(typeof(IArray), out _))
-		{
-			var getOtherBuilder = generator.Create(Linker);
-			var others = getOtherBuilder.CreateVariable(Expression.PropertyOrField(result, "Item_Others"), "others",
-				checkNull: false);
-			getOtherBuilder.Body.Add(Expression.IfThen(
-				Expression.Equal(others, Expression.Constant(null)),
-				Expression.Assign(
-					Expression.PropertyOrField(result, "Item_Others"),
-					Expression.Assign(
-						others,
-						Expression.New(others.Type)
-					)
-				)
-			));
-			getOtherBuilder.Body.Add(Expression.Call(
-				others,
-				nameof(IList.Add),
-				null,
-				objects[^1]
-			));
-
-			Expression res = IArray.IsOnlyStatic(result.Type)
-				? Expression.Assign(
-					Expression.PropertyOrField(result, $"Item_{objects.Count - 1}"),
-					objects[^1]
-				)
-				: getOtherBuilder.CreateBlock();
-			for (var i = objects.Count - 2; i >= 0; i--)
-			{
-				res = Expression.IfThenElse(
-					Expression.Equal(index, Expression.Constant(i)),
-					Expression.Assign(
-						Expression.PropertyOrField(result, $"Item_{i}"),
-						objects[i]
-					),
-					res
-				);
-			}
-
-			builder.Body.Add(res);
-		}
-		else if (result.Type.TryTo(typeof(IEnumerable<>), out _))
-		{
-			builder.Body.Add(Expression.Call(
-				result,
-				nameof(IList.Add),
-				null,
-				objects[^1]
-			));
-		}
+		builder.Body.Add(Expression.Call(
+			result,
+			nameof(IList.Add),
+			null,
+			objectCreator
+		));
 
 		return builder.CreateLambda();
 	}
@@ -302,19 +212,19 @@ public class MappingJob(
 
 		foreach (var enumerator in enumerators)
 		{
-			MethodCallExpression? disponse;
+			MethodCallExpression? dispose;
 			try
 			{
-				disponse = Expression.Call(enumerator, typeof(IDisposable).GetMethod(nameof(IDisposable.Dispose))!);
+				dispose = Expression.Call(enumerator, typeof(IDisposable).GetMethod(nameof(IDisposable.Dispose))!);
 			}
 			catch
 			{
-				disponse = null;
+				dispose = null;
 			}
 
-			if (disponse != null)
+			if (dispose != null)
 			{
-				disposes.Add(disponse);
+				disposes.Add(dispose);
 			}
 		}
 
@@ -324,42 +234,6 @@ public class MappingJob(
 				loop,
 				Expression.Block(disposes)
 			);
-	}
-}
-
-public class ListVariables : IEnumerable<(bool IsLast, Type Variable)>
-{
-	public List<Type> Variables { get; init; } = [];
-	public required bool IsOnlyStatic { get; init; }
-	public required Type LastVariable { get; init; }
-
-	public IEnumerator<(bool IsLast, Type Variable)> GetEnumerator()
-	{
-		for (var i = 0; i < Variables.Count; i++)
-		{
-			var variable = Variables[i];
-			yield return (IsLast(i), variable);
-		}
-
-		if (!IsOnlyStatic)
-		{
-			yield return (true, LastVariable);
-		}
-	}
-
-	private bool IsLast(int index)
-	{
-		if (!IsOnlyStatic)
-		{
-			return false;
-		}
-
-		return index == Variables.Count - 1;
-	}
-
-	IEnumerator IEnumerable.GetEnumerator()
-	{
-		return GetEnumerator();
 	}
 }
 

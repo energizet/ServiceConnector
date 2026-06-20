@@ -99,32 +99,6 @@ public class ExpressionGenerator(ILinker linker)
 	private ParameterExpression GetField(Expression variable, string name)
 	{
 		var type = variable.Type;
-		if (type.TryTo(typeof(IArray), out _))
-		{
-			var index = int.Parse(name);
-			var indexConst = Expression.Constant(index);
-
-			var count = CreateVariable(Expression.Call(variable, nameof(IArray.Count), null), "count");
-
-			Body.Add(Expression.IfThen(
-				Expression.IsFalse(Expression.AndAlso(
-					Expression.GreaterThanOrEqual(indexConst, Expression.Constant(0)),
-					Expression.LessThan(indexConst, count)
-				)),
-				CreateReturn()
-			));
-
-			var staticCount = IArray.StaticCount(type);
-			Expression value = index < staticCount
-				? Expression.PropertyOrField(variable, $"Item_{name}")
-				: Expression.Property(
-					Expression.PropertyOrField(variable, "Item_Others"),
-					"Item",
-					Expression.Subtract(indexConst, Expression.Constant(staticCount))
-				);
-
-			return CreateVariable(value, $"Item_{index}");
-		}
 
 		if (type.TryTo(typeof(IDictionary<,>), out var map))
 		{
